@@ -1,44 +1,44 @@
 name: Release Obsidian plugin
 
 on:
-    push:
-        tags:
-            - "*"
+  push:
+    tags:
+      - "*"
 
 permissions:
-    contents: write
+  contents: write
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Use Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20.x"
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
 
-            - name: Build plugin
-              run: |
-                  npm install
-                  npm run build
+      - name: Build plugin
+        run: |
+          npm install
+          npm run build
 
-            - name: Upload release assets
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  tag="${GITHUB_REF#refs/tags/}"
+      - name: Upload release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
 
-                  # Check if release already exists (created via UI)
-                  if gh release view "$tag" > /dev/null 2>&1; then
-                    # Upload assets to existing release
-                    gh release upload "$tag" main.js manifest.json styles.css --clobber
-                  else
-                    # Create new release with assets
-                    gh release create "$tag" \
-                      --title="$tag" \
-                      --generate-notes \
-                      main.js manifest.json styles.css
-                  fi
+          # Check if release already exists (created via UI)
+          if gh release view "$tag" > /dev/null 2>&1; then
+            # Upload assets to existing release
+            gh release upload "$tag" main.js manifest.json styles.css --clobber
+          else
+            # Create new release with assets
+            gh release create "$tag" \
+              --title="$tag" \
+              --generate-notes \
+              main.js manifest.json styles.css
+          fi
