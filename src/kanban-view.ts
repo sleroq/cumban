@@ -39,6 +39,7 @@ private cardOrder: string[] = [];
 	}
 
 	private render(): void {
+		const previousBoardScrollLeft = this.getBoardScrollLeft();
 		this.rootEl.empty();
 
 		const groups: BasesEntryGroup[] = this.data?.groupedData ?? [];
@@ -78,6 +79,35 @@ private cardOrder: string[] = [];
 				cardIndex
 			);
 		}
+
+		this.restoreBoardScrollLeft(previousBoardScrollLeft);
+	}
+
+	private getBoardScrollLeft(): number {
+		const boardEl = this.rootEl.querySelector<HTMLElement>(".bases-kanban-board");
+		if (boardEl === null) {
+			return 0;
+		}
+
+		return boardEl.scrollLeft;
+	}
+
+	private restoreBoardScrollLeft(scrollLeft: number): void {
+		if (scrollLeft <= 0) {
+			return;
+		}
+
+		const boardEl = this.rootEl.querySelector<HTMLElement>(".bases-kanban-board");
+		if (boardEl === null) {
+			return;
+		}
+
+		boardEl.scrollLeft = scrollLeft;
+		window.requestAnimationFrame(() => {
+			if (this.rootEl.contains(boardEl)) {
+				boardEl.scrollLeft = scrollLeft;
+			}
+		});
 	}
 
 	private renderPlaceholder(): void {
