@@ -11,6 +11,7 @@ const NO_VALUE_COLUMN = "(No value)";
 const NO_VALUE_COLUMN_KEY = "__bases_kanban_no_value__";
 const COLUMN_ORDER_OPTION_KEY = "columnOrder";
 const CARD_SORT_PROPERTY_OPTION_KEY = "cardSortProperty";
+const DEFAULT_CARD_SORT_PROPERTY_ID = "note.kanban_order";
 const GROUP_BY_PLACEHOLDER =
 	'Set "Group by" in the sort menu to organize cards into columns.';
 
@@ -19,7 +20,6 @@ type = "kanban";
 private readonly rootEl: HTMLElement;
 private selectedPaths = new Set<string>();
 private cardOrder: string[] = [];
-	private columnKeyByPath = new Map<string, string>();
 	private entryByPath = new Map<string, BasesEntry>();
 	private lastSelectedIndex: number | null = null;
 	private draggingSourcePath: string | null = null;
@@ -49,14 +49,7 @@ private cardOrder: string[] = [];
 		}
 
 		const orderedGroups = this.sortGroupsByColumnOrder(groups);
-
-		const selectedProperties = getSelectedProperties(this.data?.properties);
-		const groupByProperty = detectGroupByProperty(
-			groups,
-			getPropertyCandidates(selectedProperties, this.allProperties)
-		);
-
-		const cardSortConfig = this.getWritableCardSortConfig(groupByProperty);
+		const cardSortConfig = this.getWritableCardSortConfig();
 		const renderedGroups = orderedGroups.map((group) => ({
 			group,
 			entries:
@@ -65,6 +58,12 @@ private cardOrder: string[] = [];
 					: sortEntriesByRank(group.entries, cardSortConfig),
 		}));
 		this.refreshEntryIndexesFromRendered(renderedGroups);
+
+		const selectedProperties = getSelectedProperties(this.data?.properties);
+		const groupByProperty = detectGroupByProperty(
+			groups,
+			getPropertyCandidates(selectedProperties, this.allProperties)
+		);
 
 		const boardEl = this.rootEl.createDiv({ cls: "bases-kanban-board" });
 		let cardIndex = 0;
@@ -164,6 +163,13 @@ private cardOrder: string[] = [];
 				evt.dataTransfer.dropEffect = "move";
 			}
 			cardsEl.addClass("bases-kanban-drop-target");
+			const dropTarget = getCardDropTargetFromColumn(cardsEl, evt.clientY);
+			if (dropTarget === null) {
+				this.clearCardDropIndicator();
+				return;
+			}
+
+			this.setCardDropIndicator(dropTarget.path, dropTarget.placement);
 		});
 		cardsEl.addEventListener("dragleave", (evt) => {
 			if (evt.relatedTarget instanceof Node && cardsEl.contains(evt.relatedTarget)) {
@@ -175,7 +181,10 @@ private cardOrder: string[] = [];
 		cardsEl.addEventListener("drop", (evt) => {
 			evt.preventDefault();
 			cardsEl.removeClass("bases-kanban-drop-target");
-			void this.handleDrop(groupByProperty, groupKey, null, "after");
+			const targetPath = this.cardDropTargetPath;
+			const placement = this.cardDropPlacement ?? "after";
+			this.clearCardDropIndicator();
+			void this.handleDrop(groupByProperty, groupKey, targetPath, placement);
 		});
 
 		let cardIndex = startCardIndex;
@@ -681,7 +690,7 @@ private cardOrder: string[] = [];
 			});
 		}
 
-		const sortConfig = this.getWritableCardSortConfig(groupByProperty);
+		const sortConfig = this.getWritableCardSortConfig();
 		if (sortConfig === null) {
 			return;
 		}
@@ -705,22 +714,13 @@ private cardOrder: string[] = [];
 		}
 	}
 
-	private getWritableCardSortConfig(
-		groupByProperty: BasesPropertyId | null = null
-	): {
+	private getWritableCardSortConfig(): {
 		propertyId: BasesPropertyId;
 		propertyKey: string;
 		direction: "ASC" | "DESC";
 	} | null {
 		const sortConfigs = this.config?.getSort() ?? [];
 		for (const sortConfig of sortConfigs) {
-			if (
-				typeof sortConfig.property !== "string" ||
-				sortConfig.property === groupByProperty
-			) {
-				continue;
-			}
-
 			const propertyKey = getWritablePropertyKey(sortConfig.property);
 			if (propertyKey === null) {
 				continue;
@@ -736,17 +736,15 @@ private cardOrder: string[] = [];
 		const fallbackPropertyId = this.config?.getAsPropertyId(
 			CARD_SORT_PROPERTY_OPTION_KEY
 		);
-		if (fallbackPropertyId === null) {
-			return null;
-		}
-
-		const fallbackPropertyKey = getWritablePropertyKey(fallbackPropertyId);
+		const resolvedFallbackPropertyId =
+			fallbackPropertyId ?? DEFAULT_CARD_SORT_PROPERTY_ID;
+		const fallbackPropertyKey = getWritablePropertyKey(resolvedFallbackPropertyId);
 		if (fallbackPropertyKey === null) {
 			return null;
 		}
 
 		return {
-			propertyId: fallbackPropertyId,
+			propertyId: resolvedFallbackPropertyId,
 			propertyKey: fallbackPropertyKey,
 			direction: "ASC",
 		};
@@ -993,6 +991,44 @@ function toFiniteNumber(value: unknown): number | null {
 
 	const numberValue = Number(value);
 	return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function getCardDropTargetFromColumn(
+	cardsEl: HTMLElement,
+	clientY: number
+): { path: string; placement: "before" | "after" } | null {
+	const cards = cardsEl.querySelectorAll<HTMLElement>(".bases-kanban-card");
+	if (cards.length === 0) {
+		return null;
+	}
+
+	let bestDistance = Number.POSITIVE_INFINITY;
+	let bestPath: string | null = null;
+	let bestPlacement: "before" | "after" = "after";
+
+	cards.forEach((cardEl) => {
+		const path = cardEl.dataset.cardPath;
+		if (typeof path !== "string" || path.length === 0) {
+			return;
+		}
+
+		const rect = cardEl.getBoundingClientRect();
+		const midY = rect.top + rect.height / 2;
+		const distance = Math.abs(clientY - midY);
+		if (distance >= bestDistance) {
+			return;
+		}
+
+		bestDistance = distance;
+		bestPath = path;
+		bestPlacement = clientY < midY ? "before" : "after";
+	});
+
+	if (bestPath === null) {
+		return null;
+	}
+
+	return { path: bestPath, placement: bestPlacement };
 }
 
 function sortEntriesByRank(
