@@ -29,6 +29,11 @@ export interface BasesKanbanSettings {
 	columnWidth: number;
 	dropIndicatorWidth: number;
 	tagTextColor: string;
+
+	// Background (global defaults)
+	backgroundBrightness: number;
+	backgroundBlur: number;
+	columnTransparency: number;
 }
 
 export const DEFAULT_SETTINGS: BasesKanbanSettings = {
@@ -60,6 +65,11 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
 	columnWidth: 280,
 	dropIndicatorWidth: 3,
 	tagTextColor: "rgba(0, 0, 0, 0.6)",
+
+	// Background (global defaults)
+	backgroundBrightness: 100,
+	backgroundBlur: 0,
+	columnTransparency: 100,
 };
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -334,6 +344,51 @@ export class KanbanSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.tagTextColor =
 							value || DEFAULT_SETTINGS.tagTextColor;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		// Background Section
+		new Setting(containerEl).setName("Background").setHeading();
+
+		new Setting(containerEl)
+			.setName("Background brightness")
+			.setDesc("Brightness of the background image (0-100%)")
+			.addSlider((slider) =>
+				slider
+					.setLimits(0, 100, 5)
+					.setValue(this.plugin.settings.backgroundBrightness)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.backgroundBrightness = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Background blur")
+			.setDesc("Blur amount for the background image (0-20px)")
+			.addSlider((slider) =>
+				slider
+					.setLimits(0, 20, 1)
+					.setValue(this.plugin.settings.backgroundBlur)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.backgroundBlur = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Column transparency")
+			.setDesc("Transparency of kanban columns (0-100%)")
+			.addSlider((slider) =>
+				slider
+					.setLimits(0, 100, 5)
+					.setValue(this.plugin.settings.columnTransparency)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.columnTransparency = value;
 						await this.plugin.saveSettings();
 					}),
 			);

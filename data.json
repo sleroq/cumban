@@ -16,5 +16,8 @@
   "tagAlpha": 0.5,
   "columnWidth": 280,
   "dropIndicatorWidth": 3,
-  "tagTextColor": "rgba(0, 0, 0, 0.6)"
+  "tagTextColor": "rgba(0, 0, 0, 0.6)",
+  "backgroundBrightness": 45,
+  "backgroundBlur": 0,
+  "columnTransparency": 100
 }

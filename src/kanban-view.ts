@@ -14,9 +14,12 @@ import {
 
 import type BasesKanbanPlugin from "./main";
 import {
+  BACKGROUND_BLUR_OPTION_KEY,
+  BACKGROUND_BRIGHTNESS_OPTION_KEY,
   BACKGROUND_IMAGE_OPTION_KEY,
   BOARD_SCROLL_POSITION_KEY,
   COLUMN_ORDER_OPTION_KEY,
+  COLUMN_TRANSPARENCY_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
 } from "./kanban-view/constants";
 import { getKanbanViewOptions } from "./kanban-view/options";
@@ -50,6 +53,7 @@ export class KanbanView extends BasesView {
   private entryByPath = new Map<string, BasesEntry>();
   private lastSelectedIndex: number | null = null;
   private scrollSaveTimeout: number | null = null;
+  private bgEl: HTMLElement | null = null;
 
   constructor(
     controller: QueryController,
@@ -129,7 +133,7 @@ export class KanbanView extends BasesView {
   private render(): void {
     const previousBoardScrollLeft = this.getBoardScrollLeft();
     this.rootEl.empty();
-    this.applyBackgroundImage();
+    this.applyBackgroundStyles();
 
     const rawGroups: BasesEntryGroup[] = this.data?.groupedData ?? [];
     const groups = this.mergeGroupsByColumnKey(rawGroups);
@@ -254,7 +258,7 @@ export class KanbanView extends BasesView {
   }
 
   private renderPlaceholder(): void {
-    this.applyBackgroundImage();
+    this.applyBackgroundStyles();
     this.rootEl.createEl("p", {
       text: this.plugin.settings.placeholderText,
       cls: "bases-kanban-placeholder",
@@ -282,20 +286,60 @@ export class KanbanView extends BasesView {
     return null;
   }
 
-  private applyBackgroundImage(): void {
+  private getConfigNumber(
+    key: string,
+    globalDefault: number,
+    min: number,
+    max: number,
+  ): number {
+    const rawValue = this.config?.get(key);
+    if (typeof rawValue === "number" && !Number.isNaN(rawValue)) {
+      return Math.max(min, Math.min(max, rawValue));
+    }
+    return globalDefault;
+  }
+
+  private applyBackgroundStyles(): void {
     const rawInput = this.config?.get(BACKGROUND_IMAGE_OPTION_KEY);
     const imageUrl =
       typeof rawInput === "string" ? this.resolveBackgroundInput(rawInput) : null;
 
+    // Get configuration values
+    const brightness = this.getConfigNumber(
+      BACKGROUND_BRIGHTNESS_OPTION_KEY,
+      this.plugin.settings.backgroundBrightness,
+      0,
+      100,
+    );
+    const blur = this.getConfigNumber(
+      BACKGROUND_BLUR_OPTION_KEY,
+      this.plugin.settings.backgroundBlur,
+      0,
+      20,
+    );
+    const columnTransparency = this.getConfigNumber(
+      COLUMN_TRANSPARENCY_OPTION_KEY,
+      this.plugin.settings.columnTransparency,
+      0,
+      100,
+    );
+
+    // Apply column transparency CSS variable
+    this.rootEl.style.setProperty(
+      "--bases-kanban-column-transparency",
+      String(columnTransparency / 100),
+    );
+
+    // Manage background element
     if (imageUrl !== null) {
-      this.rootEl.style.setProperty(
-        "--bases-kanban-bg-image",
-        `url("${imageUrl}")`,
-      );
-      this.rootEl.addClass("bases-kanban-has-background");
-    } else {
-      this.rootEl.style.removeProperty("--bases-kanban-bg-image");
-      this.rootEl.removeClass("bases-kanban-has-background");
+      if (this.bgEl === null || !this.rootEl.contains(this.bgEl)) {
+        this.bgEl = this.rootEl.createDiv({ cls: "bases-kanban-background" });
+      }
+      this.bgEl.style.backgroundImage = `url("${imageUrl}")`;
+      this.bgEl.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
+    } else if (this.bgEl !== null) {
+      this.bgEl.remove();
+      this.bgEl = null;
     }
   }
 

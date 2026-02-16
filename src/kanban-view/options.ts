@@ -1,33 +1,63 @@
 import {
-  BACKGROUND_IMAGE_OPTION_KEY,
-  COLUMN_ORDER_OPTION_KEY,
-  LOCAL_CARD_ORDER_OPTION_KEY,
+	BACKGROUND_BLUR_OPTION_KEY,
+	BACKGROUND_BRIGHTNESS_OPTION_KEY,
+	BACKGROUND_IMAGE_OPTION_KEY,
+	COLUMN_ORDER_OPTION_KEY,
+	COLUMN_TRANSPARENCY_OPTION_KEY,
+	LOCAL_CARD_ORDER_OPTION_KEY,
 } from "./constants";
 
 export function getKanbanViewOptions() {
-  return [
-    {
-      key: COLUMN_ORDER_OPTION_KEY,
-      displayName: "Column order",
-      type: "text" as const,
-      default: "",
-      placeholder: "Managed by drag and drop",
-      shouldHide: () => true,
-    },
-    {
-      key: LOCAL_CARD_ORDER_OPTION_KEY,
-      displayName: "Card order",
-      type: "text" as const,
-      default: "",
-      placeholder: "Managed by drag and drop",
-      shouldHide: () => true,
-    },
-    {
-      key: BACKGROUND_IMAGE_OPTION_KEY,
-      displayName: "Background image",
-      type: "text" as const,
-      default: "",
-      placeholder: "https://... or vault/path.png",
-    },
-  ];
+	return [
+		{
+			key: COLUMN_ORDER_OPTION_KEY,
+			displayName: "Column order",
+			type: "text" as const,
+			default: "",
+			placeholder: "Managed by drag and drop",
+			shouldHide: () => true,
+		},
+		{
+			key: LOCAL_CARD_ORDER_OPTION_KEY,
+			displayName: "Card order",
+			type: "text" as const,
+			default: "",
+			placeholder: "Managed by drag and drop",
+			shouldHide: () => true,
+		},
+		{
+			key: BACKGROUND_IMAGE_OPTION_KEY,
+			displayName: "Background image",
+			type: "text" as const,
+			default: "",
+			placeholder: "https://... or vault/path.png",
+		},
+		{
+			key: BACKGROUND_BRIGHTNESS_OPTION_KEY,
+			displayName: "Background brightness",
+			type: "slider" as const,
+			default: 100,
+			min: 0,
+			max: 100,
+			step: 5,
+		},
+		{
+			key: BACKGROUND_BLUR_OPTION_KEY,
+			displayName: "Background blur",
+			type: "slider" as const,
+			default: 0,
+			min: 0,
+			max: 20,
+			step: 1,
+		},
+		{
+			key: COLUMN_TRANSPARENCY_OPTION_KEY,
+			displayName: "Column transparency",
+			type: "slider" as const,
+			default: 100,
+			min: 0,
+			max: 100,
+			step: 5,
+		},
+	];
 }
