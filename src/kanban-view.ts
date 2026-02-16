@@ -6,6 +6,7 @@ import {
   BasesView,
   Menu,
   Modal,
+  normalizePath,
   Notice,
   QueryController,
   TFile,
@@ -13,6 +14,7 @@ import {
 
 import type BasesKanbanPlugin from "./main";
 import {
+  BACKGROUND_IMAGE_OPTION_KEY,
   BOARD_SCROLL_POSITION_KEY,
   COLUMN_ORDER_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
@@ -127,6 +129,7 @@ export class KanbanView extends BasesView {
   private render(): void {
     const previousBoardScrollLeft = this.getBoardScrollLeft();
     this.rootEl.empty();
+    this.applyBackgroundImage();
 
     const rawGroups: BasesEntryGroup[] = this.data?.groupedData ?? [];
     const groups = this.mergeGroupsByColumnKey(rawGroups);
@@ -251,10 +254,49 @@ export class KanbanView extends BasesView {
   }
 
   private renderPlaceholder(): void {
+    this.applyBackgroundImage();
     this.rootEl.createEl("p", {
       text: this.plugin.settings.placeholderText,
       cls: "bases-kanban-placeholder",
     });
+  }
+
+  private resolveBackgroundInput(input: string): string | null {
+    const trimmed = input.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+
+    // Check if it's a URL (http:// or https://)
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Treat as vault file path
+    const normalizedPath = normalizePath(trimmed);
+    const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+    if (file instanceof TFile) {
+      return this.app.vault.getResourcePath(file);
+    }
+
+    return null;
+  }
+
+  private applyBackgroundImage(): void {
+    const rawInput = this.config?.get(BACKGROUND_IMAGE_OPTION_KEY);
+    const imageUrl =
+      typeof rawInput === "string" ? this.resolveBackgroundInput(rawInput) : null;
+
+    if (imageUrl !== null) {
+      this.rootEl.style.setProperty(
+        "--bases-kanban-bg-image",
+        `url("${imageUrl}")`,
+      );
+      this.rootEl.addClass("bases-kanban-has-background");
+    } else {
+      this.rootEl.style.removeProperty("--bases-kanban-bg-image");
+      this.rootEl.removeClass("bases-kanban-has-background");
+    }
   }
 
   private setupCardDragBehavior(cardEl: HTMLElement): void {

@@ -5,6 +5,13 @@
     padding: var(--size-4-3);
 }
 
+.bases-kanban-container.bases-kanban-has-background {
+    background-image: var(--bases-kanban-bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
 .bases-kanban-placeholder {
     color: var(--text-muted);
     text-align: center;
