@@ -147,6 +147,9 @@
 
 .bases-kanban-card-title a {
 	text-decoration: none;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+	word-break: break-word;
 }
 
 .bases-kanban-card-properties {

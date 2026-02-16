@@ -23,6 +23,7 @@ export type RenderContext = {
   emptyColumnLabel: string;
   addCardButtonText: string;
   cardTitleSource: "basename" | "filename" | "path";
+  cardTitleMaxLength: number;
   propertyValueSeparator: string;
   tagPropertySuffix: string;
   tagSaturation: number;
@@ -341,7 +342,8 @@ export class KanbanRenderer {
     cardIndex: number,
     context: RenderContext,
   ): void {
-    const title = this.getCardTitle(entry, context.cardTitleSource);
+    const fullTitle = this.getCardTitle(entry, context.cardTitleSource);
+    const title = this.truncateTitle(fullTitle, context.cardTitleMaxLength);
     const filePath = entry.file.path;
     const cardEl = cardsEl.createDiv({ cls: "bases-kanban-card" });
     cardEl.draggable = false;
@@ -562,5 +564,12 @@ export class KanbanRenderer {
       default:
         return entry.file.basename;
     }
+  }
+
+  private truncateTitle(title: string, maxLength: number): string {
+    if (maxLength <= 0 || title.length <= maxLength) {
+      return title;
+    }
+    return title.slice(0, maxLength - 3) + "...";
   }
 }

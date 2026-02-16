@@ -19,6 +19,7 @@ export interface BasesKanbanSettings {
 
 	// Card Display
 	cardTitleSource: "basename" | "filename" | "path";
+	cardTitleMaxLength: number;
 	propertyValueSeparator: string;
 	tagPropertySuffix: string;
 
@@ -55,6 +56,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
 
 	// Card Display
 	cardTitleSource: "basename",
+	cardTitleMaxLength: 60,
 	propertyValueSeparator: ", ",
 	tagPropertySuffix: ".tags",
 
@@ -136,6 +138,20 @@ export class KanbanSettingTab extends PluginSettingTab {
 							| "basename"
 							| "filename"
 							| "path";
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Maximum card title length")
+			.setDesc("Titles longer than this will be truncated with \"...\". Set to 0 for no limit.")
+			.addSlider((slider) =>
+				slider
+					.setLimits(0, 200, 10)
+					.setValue(this.plugin.settings.cardTitleMaxLength)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.cardTitleMaxLength = value;
 						await this.plugin.saveSettings();
 					}),
 			);

@@ -185,6 +185,7 @@ export class KanbanView extends BasesView {
       emptyColumnLabel: this.plugin.settings.emptyColumnLabel,
       addCardButtonText: this.plugin.settings.addCardButtonText,
       cardTitleSource: this.plugin.settings.cardTitleSource,
+      cardTitleMaxLength: this.plugin.settings.cardTitleMaxLength,
       propertyValueSeparator: this.plugin.settings.propertyValueSeparator,
       tagPropertySuffix: this.plugin.settings.tagPropertySuffix,
       tagSaturation: this.plugin.settings.tagSaturation,
