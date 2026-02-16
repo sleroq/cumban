@@ -32,7 +32,7 @@ import {
   hasConfiguredGroupBy,
   sortRange,
 } from "./kanban-view/utils";
-import { buildEntryIndexes, getElementByDataset } from "./kanban-view/indexing";
+import { buildEntryIndexes } from "./kanban-view/indexing";
 import { KanbanDragController } from "./kanban-view/drag-controller";
 import { KanbanMutationService } from "./kanban-view/mutations";
 import {
@@ -54,6 +54,14 @@ export class KanbanView extends BasesView {
   private lastSelectedIndex: number | null = null;
   private scrollSaveTimeout: number | null = null;
   private bgEl: HTMLElement | null = null;
+  private cachedImageUrl: string | null = null;
+  private cachedBackgroundInput: string | null = null;
+  private cachedResolvedImageUrl: string | null = null;
+  private cachedBackgroundFilter: string | null = null;
+  private cachedColumnTransparencyValue: number | null = null;
+  private backgroundImageLoadVersion = 0;
+  private cardElByPath = new Map<string, HTMLElement>();
+  private columnElByKey = new Map<string, HTMLElement>();
 
   constructor(
     controller: QueryController,
@@ -139,14 +147,20 @@ export class KanbanView extends BasesView {
     const groups = this.mergeGroupsByColumnKey(rawGroups);
     if (!hasConfiguredGroupBy(groups)) {
       this.refreshEntryIndexes(groups);
+      this.clearElementIndexes();
       this.renderPlaceholder();
       return;
     }
 
     const orderedGroups = this.sortGroupsByColumnOrder(groups);
+    const localCardOrderByColumn = this.getLocalCardOrderByColumn();
     const renderedGroups = orderedGroups.map((group) => ({
       group,
-      entries: this.applyLocalCardOrder(getColumnKey(group.key), group.entries),
+      entries: this.applyLocalCardOrder(
+        getColumnKey(group.key),
+        group.entries,
+        localCardOrderByColumn,
+      ),
     }));
     this.refreshEntryIndexesFromRendered(renderedGroups);
 
@@ -189,6 +203,8 @@ export class KanbanView extends BasesView {
         context,
       );
     }
+
+    this.refreshElementIndexes();
 
     const scrollLeftToRestore =
       previousBoardScrollLeft > 0
@@ -300,9 +316,9 @@ export class KanbanView extends BasesView {
   }
 
   private applyBackgroundStyles(): void {
-    const rawInput = this.config?.get(BACKGROUND_IMAGE_OPTION_KEY);
-    const imageUrl =
-      typeof rawInput === "string" ? this.resolveBackgroundInput(rawInput) : null;
+    const imageUrl = this.resolveBackgroundImageUrl(
+      this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
+    );
 
     // Get configuration values
     const brightness = this.getConfigNumber(
@@ -325,22 +341,97 @@ export class KanbanView extends BasesView {
     );
 
     // Apply column transparency CSS variable
-    this.rootEl.style.setProperty(
-      "--bases-kanban-column-transparency",
-      String(columnTransparency / 100),
-    );
+    const columnTransparencyValue = columnTransparency / 100;
+    if (this.cachedColumnTransparencyValue !== columnTransparencyValue) {
+      this.rootEl.style.setProperty(
+        "--bases-kanban-column-transparency",
+        String(columnTransparencyValue),
+      );
+      this.cachedColumnTransparencyValue = columnTransparencyValue;
+    }
 
     // Manage background element
     if (imageUrl !== null) {
+      const urlChanged = imageUrl !== this.cachedImageUrl;
+      let createdBackgroundElement = false;
+
       if (this.bgEl === null || !this.rootEl.contains(this.bgEl)) {
         this.bgEl = this.rootEl.createDiv({ cls: "bases-kanban-background" });
+        createdBackgroundElement = true;
       }
-      this.bgEl.style.backgroundImage = `url("${imageUrl}")`;
-      this.bgEl.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
-    } else if (this.bgEl !== null) {
+
+      if (this.bgEl === null) {
+        return;
+      }
+
+      if (createdBackgroundElement && this.cachedImageUrl !== null) {
+        this.bgEl.style.backgroundImage = `url("${this.cachedImageUrl}")`;
+      }
+
+      if (urlChanged) {
+        this.preloadBackgroundImage(imageUrl);
+      } else if (createdBackgroundElement) {
+        this.bgEl.style.backgroundImage = `url("${imageUrl}")`;
+      }
+
+      const nextFilter = `blur(${blur}px) brightness(${brightness}%)`;
+      if (createdBackgroundElement || this.cachedBackgroundFilter !== nextFilter) {
+        this.bgEl.style.filter = nextFilter;
+        this.cachedBackgroundFilter = nextFilter;
+      }
+      return;
+    }
+
+    this.backgroundImageLoadVersion += 1;
+    if (this.bgEl !== null) {
       this.bgEl.remove();
       this.bgEl = null;
     }
+    this.cachedImageUrl = null;
+    this.cachedBackgroundFilter = null;
+  }
+
+  private resolveBackgroundImageUrl(rawInput: unknown): string | null {
+    if (typeof rawInput !== "string") {
+      this.cachedBackgroundInput = null;
+      this.cachedResolvedImageUrl = null;
+      return null;
+    }
+
+    if (rawInput === this.cachedBackgroundInput) {
+      return this.cachedResolvedImageUrl;
+    }
+
+    const resolvedImageUrl = this.resolveBackgroundInput(rawInput);
+    this.cachedBackgroundInput = rawInput;
+    this.cachedResolvedImageUrl = resolvedImageUrl;
+    return resolvedImageUrl;
+  }
+
+  private preloadBackgroundImage(imageUrl: string): void {
+    const currentVersion = this.backgroundImageLoadVersion + 1;
+    this.backgroundImageLoadVersion = currentVersion;
+    const image = new Image();
+    image.onload = () => {
+      if (currentVersion !== this.backgroundImageLoadVersion) {
+        return;
+      }
+
+      if (this.bgEl === null || !this.rootEl.contains(this.bgEl)) {
+        return;
+      }
+
+      this.bgEl.style.backgroundImage = `url("${imageUrl}")`;
+      this.cachedImageUrl = imageUrl;
+    };
+    image.onerror = () => {
+      if (currentVersion !== this.backgroundImageLoadVersion) {
+        return;
+      }
+
+      console.error(`Failed to load background image: ${imageUrl}`);
+    };
+    image.src = imageUrl;
   }
 
   private setupCardDragBehavior(cardEl: HTMLElement): void {
@@ -504,8 +595,9 @@ export class KanbanView extends BasesView {
   private applyLocalCardOrder(
     columnKey: string,
     entries: BasesEntry[],
+    localOrderByColumn: Map<string, string[]>,
   ): BasesEntry[] {
-    const orderedPaths = this.getLocalCardOrderByColumn().get(columnKey);
+    const orderedPaths = localOrderByColumn.get(columnKey);
     if (orderedPaths === undefined || orderedPaths.length === 0) {
       return entries;
     }
@@ -825,12 +917,7 @@ export class KanbanView extends BasesView {
   }
 
   private getColumnEl(columnKey: string): HTMLElement | null {
-    return getElementByDataset(
-      this.rootEl,
-      ".bases-kanban-column",
-      "columnKey",
-      columnKey,
-    );
+    return this.columnElByKey.get(columnKey) ?? null;
   }
 
   private handleColumnDrop(
@@ -944,12 +1031,36 @@ export class KanbanView extends BasesView {
   }
 
   private getCardEl(path: string): HTMLElement | null {
-    return getElementByDataset(
-      this.rootEl,
-      ".bases-kanban-card",
-      "cardPath",
-      path,
+    return this.cardElByPath.get(path) ?? null;
+  }
+
+  private clearElementIndexes(): void {
+    this.cardElByPath.clear();
+    this.columnElByKey.clear();
+  }
+
+  private refreshElementIndexes(): void {
+    this.clearElementIndexes();
+
+    const columnEls = this.rootEl.querySelectorAll<HTMLElement>(
+      ".bases-kanban-column",
     );
+    columnEls.forEach((columnEl) => {
+      const columnKey = columnEl.dataset.columnKey;
+      if (typeof columnKey === "string" && columnKey.length > 0) {
+        this.columnElByKey.set(columnKey, columnEl);
+      }
+    });
+
+    const cardEls = this.rootEl.querySelectorAll<HTMLElement>(
+      ".bases-kanban-card",
+    );
+    cardEls.forEach((cardEl) => {
+      const path = cardEl.dataset.cardPath;
+      if (typeof path === "string" && path.length > 0) {
+        this.cardElByPath.set(path, cardEl);
+      }
+    });
   }
 
   private async handleDrop(

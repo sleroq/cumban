@@ -108,6 +108,8 @@ export class KanbanRenderer {
       this.handlers.onEndColumnDrag();
     });
 
+    let latestColumnDragClientX = 0;
+    let columnDragOverFrameId: number | null = null;
     columnEl.addEventListener("dragover", (evt) => {
       if (context.getDraggingColumnKey() === null) {
         return;
@@ -118,10 +120,24 @@ export class KanbanRenderer {
         evt.dataTransfer.dropEffect = "move";
       }
 
-      const rect = columnEl.getBoundingClientRect();
-      const placement =
-        evt.clientX < rect.left + rect.width / 2 ? "before" : "after";
-      this.handlers.onSetColumnDropIndicator(columnKey, placement);
+      latestColumnDragClientX = evt.clientX;
+      if (columnDragOverFrameId !== null) {
+        return;
+      }
+
+      columnDragOverFrameId = window.requestAnimationFrame(() => {
+        columnDragOverFrameId = null;
+        if (context.getDraggingColumnKey() === null) {
+          return;
+        }
+
+        const rect = columnEl.getBoundingClientRect();
+        const placement =
+          latestColumnDragClientX < rect.left + rect.width / 2
+            ? "before"
+            : "after";
+        this.handlers.onSetColumnDropIndicator(columnKey, placement);
+      });
     });
     columnEl.addEventListener("dragleave", (evt) => {
       if (
@@ -135,6 +151,11 @@ export class KanbanRenderer {
         return;
       }
 
+      if (columnDragOverFrameId !== null) {
+        window.cancelAnimationFrame(columnDragOverFrameId);
+        columnDragOverFrameId = null;
+      }
+
       this.handlers.onClearColumnDropIndicator();
     });
     columnEl.addEventListener("drop", (evt) => {
@@ -143,6 +164,10 @@ export class KanbanRenderer {
       }
 
       evt.preventDefault();
+      if (columnDragOverFrameId !== null) {
+        window.cancelAnimationFrame(columnDragOverFrameId);
+        columnDragOverFrameId = null;
+      }
       const placement = context.getColumnDropPlacement() ?? "before";
       this.handlers.onHandleColumnDrop(columnKey, placement);
     });
@@ -173,6 +198,8 @@ export class KanbanRenderer {
     });
 
     const cardsEl = columnEl.createDiv({ cls: "bases-kanban-cards" });
+    let latestCardsDragClientY = 0;
+    let cardsDragOverFrameId: number | null = null;
     cardsEl.addEventListener("dragover", (evt) => {
       if (
         context.groupByProperty === null ||
@@ -186,16 +213,35 @@ export class KanbanRenderer {
         evt.dataTransfer.dropEffect = "move";
       }
       cardsEl.addClass("bases-kanban-drop-target");
-      const dropTarget = getCardDropTargetFromColumn(cardsEl, evt.clientY);
-      if (dropTarget === null) {
-        this.handlers.onClearCardDropIndicator();
+
+      latestCardsDragClientY = evt.clientY;
+      if (cardsDragOverFrameId !== null) {
         return;
       }
 
-      this.handlers.onSetCardDropIndicator(
-        dropTarget.path,
-        dropTarget.placement,
-      );
+      cardsDragOverFrameId = window.requestAnimationFrame(() => {
+        cardsDragOverFrameId = null;
+        if (
+          context.groupByProperty === null ||
+          context.getDraggingSourcePath() === null
+        ) {
+          return;
+        }
+
+        const dropTarget = getCardDropTargetFromColumn(
+          cardsEl,
+          latestCardsDragClientY,
+        );
+        if (dropTarget === null) {
+          this.handlers.onClearCardDropIndicator();
+          return;
+        }
+
+        this.handlers.onSetCardDropIndicator(
+          dropTarget.path,
+          dropTarget.placement,
+        );
+      });
     });
     cardsEl.addEventListener("dragleave", (evt) => {
       if (
@@ -205,10 +251,19 @@ export class KanbanRenderer {
         return;
       }
 
+      if (cardsDragOverFrameId !== null) {
+        window.cancelAnimationFrame(cardsDragOverFrameId);
+        cardsDragOverFrameId = null;
+      }
+
       cardsEl.removeClass("bases-kanban-drop-target");
     });
     cardsEl.addEventListener("drop", (evt) => {
       evt.preventDefault();
+      if (cardsDragOverFrameId !== null) {
+        window.cancelAnimationFrame(cardsDragOverFrameId);
+        cardsDragOverFrameId = null;
+      }
       cardsEl.removeClass("bases-kanban-drop-target");
       const targetPath = context.getCardDropTargetPath();
       const placement = context.getCardDropPlacement() ?? "after";
@@ -317,6 +372,8 @@ export class KanbanRenderer {
     cardEl.addEventListener("dragend", () => {
       this.handlers.onEndCardDrag();
     });
+    let latestCardDragClientY = 0;
+    let cardDragOverFrameId: number | null = null;
     cardEl.addEventListener("dragover", (evt) => {
       if (
         context.groupByProperty === null ||
@@ -331,10 +388,27 @@ export class KanbanRenderer {
         evt.dataTransfer.dropEffect = "move";
       }
 
-      const rect = cardEl.getBoundingClientRect();
-      const placement =
-        evt.clientY < rect.top + rect.height / 2 ? "before" : "after";
-      this.handlers.onSetCardDropIndicator(filePath, placement);
+      latestCardDragClientY = evt.clientY;
+      if (cardDragOverFrameId !== null) {
+        return;
+      }
+
+      cardDragOverFrameId = window.requestAnimationFrame(() => {
+        cardDragOverFrameId = null;
+        if (
+          context.groupByProperty === null ||
+          context.getDraggingSourcePath() === null
+        ) {
+          return;
+        }
+
+        const rect = cardEl.getBoundingClientRect();
+        const placement =
+          latestCardDragClientY < rect.top + rect.height / 2
+            ? "before"
+            : "after";
+        this.handlers.onSetCardDropIndicator(filePath, placement);
+      });
     });
     cardEl.addEventListener("dragleave", (evt) => {
       if (
@@ -342,6 +416,11 @@ export class KanbanRenderer {
         cardEl.contains(evt.relatedTarget)
       ) {
         return;
+      }
+
+      if (cardDragOverFrameId !== null) {
+        window.cancelAnimationFrame(cardDragOverFrameId);
+        cardDragOverFrameId = null;
       }
 
       if (context.getCardDropTargetPath() === filePath) {
@@ -358,6 +437,10 @@ export class KanbanRenderer {
 
       evt.preventDefault();
       evt.stopPropagation();
+      if (cardDragOverFrameId !== null) {
+        window.cancelAnimationFrame(cardDragOverFrameId);
+        cardDragOverFrameId = null;
+      }
       const placement = context.getCardDropPlacement() ?? "after";
       this.handlers.onClearCardDropIndicator();
       void this.handlers.onHandleDrop(
