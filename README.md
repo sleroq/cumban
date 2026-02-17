@@ -1,6 +1,6 @@
-# Bases Kanban
+<img width="1433" height="853" alt="image" src="https://github.com/user-attachments/assets/a195e6d8-059c-42ae-975b-076402482a67" /># Bases Kanban
 
-<img width="1482" height="947" alt="image" src="https://github.com/user-attachments/assets/5e4a1505-0415-4233-b108-0d1a416519a8" />
+<img width="1433" height="853" alt="image" src="https://github.com/user-attachments/assets/96219c18-abfb-4999-a78e-a1ed9cfc64c0" />
 
 ## Features
 
