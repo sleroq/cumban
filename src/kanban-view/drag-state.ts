@@ -139,8 +139,6 @@ export function createColumnDragState(): {
   isDropTarget: (key: string) => boolean;
   getDropPlacement: (key: string) => "before" | "after" | null;
   isDraggingSource: (key: string) => boolean;
-  getSourceKey: () => string | null;
-  getTargetKey: () => string | null;
   getPlacement: () => "before" | "after" | null;
 } {
   const sourceKey = writable<string | null>(null);
@@ -203,14 +201,6 @@ export function createColumnDragState(): {
 
     isDraggingSource(key: string): boolean {
       return get(sourceKey) === key;
-    },
-
-    getSourceKey(): string | null {
-      return get(sourceKey);
-    },
-
-    getTargetKey(): string | null {
-      return get(targetKey);
     },
 
     getPlacement(): "before" | "after" | null {

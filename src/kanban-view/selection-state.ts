@@ -126,13 +126,6 @@ export function isPathSelected(
 }
 
 /**
- * Get count of selected paths.
- */
-export function getSelectionCount(state: SelectionState): number {
-  return state.selectedPaths.size;
-}
-
-/**
  * Check if selection is empty.
  */
 export function hasSelection(state: SelectionState): boolean {

@@ -45,8 +45,6 @@
     onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
     onCardLinkClick: (evt: MouseEvent, target: string) => void;
     onCardsScroll: (scrollTop: number) => void;
-    onBoardKeyDown: (evt: KeyboardEvent) => void;
-    onBoardClick: () => void;
   }
 
   let {
@@ -83,8 +81,6 @@
     onCardContextMenu,
     onCardLinkClick,
     onCardsScroll,
-    onBoardKeyDown,
-    onBoardClick,
   }: Props = $props();
 
   let columnEl: HTMLElement | null = $state(null);

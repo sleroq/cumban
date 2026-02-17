@@ -207,8 +207,6 @@
       onCardContextMenu={onCardContextMenu}
       onCardLinkClick={onCardLinkClick}
       onCardsScroll={(scrollTop) => onCardsScroll(columnKey, scrollTop)}
-      onBoardKeyDown={onBoardKeyDown}
-      onBoardClick={onBoardClick}
     />
   {/each}
 </div>

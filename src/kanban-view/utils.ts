@@ -177,10 +177,6 @@ export function getColumnKey(groupKey: unknown): string {
   return String(groupKey);
 }
 
-export function sortRange(start: number, end: number): [number, number] {
-  return start <= end ? [start, end] : [end, start];
-}
-
 export function getWritablePropertyKey(
   propertyId: BasesPropertyId,
 ): string | null {
