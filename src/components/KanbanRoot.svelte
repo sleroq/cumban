@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { setContext, untrack } from "svelte";
+  import { setContext } from "svelte";
   import type { BasesEntry, BasesPropertyId, BasesEntryGroup, App } from "obsidian";
   import type { Readable } from "svelte/store";
   import KanbanBoard from "./KanbanBoard.svelte";
@@ -100,19 +100,7 @@
   const selectedProperties = $derived($selectedPropertiesStore);
   const columnScrollByKey = $derived($columnScrollByKeyStore);
 
-  // Debug: Track when groups change
-  $effect(() => {
-    const currentGroups = $groupsStore;
-    const totalEntries = currentGroups.reduce((sum: number, g: { entries: BasesEntry[] }) => sum + g.entries.length, 0);
-    console.log("[KANBAN SVELTE] Groups updated:", {
-      groupCount: currentGroups.length,
-      totalEntries,
-      firstColumnEntries: currentGroups[0]?.entries.slice(0, 3).map((e: BasesEntry) => e.file.path) ?? [],
-    });
-  });
 </script>
-
-{console.log('[KANBAN ROOT] Rendering with groups:', $groupsStore.length, 'first:', $groupsStore[0]?.entries?.[0]?.file?.path)}
 <KanbanBackground
   {app}
   {rootEl}

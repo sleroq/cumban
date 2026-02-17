@@ -130,6 +130,11 @@
     }
     boardEl.scrollLeft = initialBoardScrollLeft;
     boardEl.scrollTop = initialBoardScrollTop;
+    // Use passive listener for better scroll performance
+    boardEl.addEventListener("scroll", handleBoardScroll, { passive: true });
+    return () => {
+      boardEl?.removeEventListener("scroll", handleBoardScroll);
+    };
   });
 </script>
 
@@ -142,7 +147,6 @@
   tabindex="0"
   onkeydown={onBoardKeyDown}
   onclick={handleBoardClick}
-  onscroll={handleBoardScroll}
   role="application"
   aria-label="Kanban board"
 >

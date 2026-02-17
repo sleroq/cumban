@@ -40,7 +40,6 @@
     cardIndex,
     groupByProperty,
     selectedProperties,
-    selected,
     cardDragState,
     onSelect,
     onDragStart,
@@ -51,8 +50,8 @@
     onLinkClick,
   }: Props = $props();
 
-  // Get settings from context
-  const { settings } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+  // Get settings and selection store from context
+  const { settings, selectedPathsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
 
   let cardEl: HTMLElement | null = $state(null);
   let isDraggable: boolean = $state(false);
@@ -68,6 +67,11 @@
         propertyId !== "file.name" && propertyId !== groupByProperty,
     ),
   );
+
+  // Derive selection status from store - each card subscribes individually
+  // This is more efficient than parent passing selected as prop because
+  // it prevents entire column re-render when selection changes
+  const selected = $derived($selectedPathsStore.has(filePath));
 
   // Reactive state using methods
   const isDraggingSource = $derived(cardDragState.isDraggingSource(filePath));

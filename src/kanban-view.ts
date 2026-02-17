@@ -11,7 +11,7 @@ import {
   TFile,
 } from "obsidian";
 import { mount, unmount } from "svelte";
-import { writable, type Writable } from "svelte/store";
+import { writable, type Writable, get } from "svelte/store";
 
 import type BasesKanbanPlugin from "./main";
 import {
@@ -86,7 +86,6 @@ export class KanbanView extends BasesView {
   private entryByPath = new Map<string, BasesEntry>();
   private scrollSaveTimeout: number | null = null;
   private viewSessionId: string;
-  private hasRenderedBoard = false;
   private localCardOrderCache: CardOrderCache = { order: null, raw: "" };
   private columnOrderCache: ColumnOrderCache = { order: null, raw: "" };
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
@@ -173,7 +172,6 @@ export class KanbanView extends BasesView {
       }
       this.rootEl.empty();
       this.renderPlaceholder();
-      this.hasRenderedBoard = false;
       return;
     }
 
@@ -209,7 +207,6 @@ export class KanbanView extends BasesView {
     if (this.svelteApp === null) {
       logRenderEvent("Mounting Svelte app for first render");
       this.mountSvelteApp(renderedGroups, groupByProperty, selectedProperties);
-      this.hasRenderedBoard = true;
     } else {
       logRenderEvent("Updating Svelte app props (Svelte handles DOM diffing)");
       this.updateSvelteAppProps(renderedGroups, groupByProperty, selectedProperties);
@@ -294,23 +291,40 @@ export class KanbanView extends BasesView {
     groupByProperty: BasesPropertyId | null,
     selectedProperties: BasesPropertyId[],
   ): void {
-    // Update column scroll positions for any new columns
+    // Only load scroll positions for new columns (not already in store)
+    // This avoids re-setting scroll positions for existing columns on every update
+    const currentScrollByKey = get(this.columnScrollByKeyStore);
     const columnScrollByKey: Record<string, number> = {};
+    let hasNewColumns = false;
+
     for (const { group } of renderedGroups) {
       const columnKey = getColumnKey(group.key);
-      columnScrollByKey[columnKey] = loadColumnScrollPosition(
-        this.viewSessionId,
-        columnKey,
-      );
+      if (columnKey in currentScrollByKey) {
+        // Preserve existing scroll position for known columns
+        columnScrollByKey[columnKey] = currentScrollByKey[columnKey]!;
+      } else {
+        // Load scroll position for new columns
+        columnScrollByKey[columnKey] = loadColumnScrollPosition(
+          this.viewSessionId,
+          columnKey,
+        );
+        hasNewColumns = true;
+      }
     }
 
     // Update stores to trigger Svelte reactivity
     this.groupsStore.set(renderedGroups);
     this.groupByPropertyStore.set(groupByProperty);
     this.selectedPropertiesStore.set(selectedProperties);
-    this.columnScrollByKeyStore.set(columnScrollByKey);
+
+    // Only update scroll store if there are new columns
+    if (hasNewColumns) {
+      this.columnScrollByKeyStore.set(columnScrollByKey);
+    }
+
     logRenderEvent("Stores updated", {
       groupCount: renderedGroups.length,
+      newColumns: hasNewColumns,
     });
   }
 

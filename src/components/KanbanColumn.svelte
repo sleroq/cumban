@@ -68,22 +68,15 @@
 
   let columnEl: HTMLElement | null = $state(null);
   let cardsEl: HTMLElement | null = $state(null);
-  let scrollTimeout: ReturnType<typeof setTimeout> | null = $state(null);
-  let columnRafId: number | null = $state(null);
+  // These are imperative cleanup values, not reactive UI state
+  let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+  let columnRafId: number | null = null;
 
   const columnName = $derived(getColumnName(groupKey, settings.emptyColumnLabel));
 
   // Extract stores to local variables so we can use $ prefix
   const columnIsDragging = $derived(columnDragState.isDragging);
   const cardIsDragging = $derived(cardDragState.isDragging);
-
-  // Debug: Track when entries change
-  $effect(() => {
-    console.log(`[KANBAN COLUMN ${columnKey}] Entries updated:`, {
-      count: entries.length,
-      firstPaths: entries.slice(0, 3).map(e => e.file.path),
-    });
-  });
 
   onMount(() => {
     if (cardsEl !== null && initialScrollTop > 0) {
@@ -94,6 +87,9 @@
   onDestroy(() => {
     if (scrollTimeout !== null) {
       clearTimeout(scrollTimeout);
+    }
+    if (columnRafId !== null) {
+      cancelAnimationFrame(columnRafId);
     }
   });
 </script>
