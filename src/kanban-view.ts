@@ -56,11 +56,7 @@ import {
   saveColumnScrollPosition,
   loadColumnScrollPosition,
 } from "./kanban-view/state-persistence";
-import {
-  type BackgroundManagerState,
-  applyBackground,
-  createBackgroundManagerState,
-} from "./kanban-view/background-manager";
+
 import {
   type RenderedGroup,
   mergeGroupsByColumnKey,
@@ -88,12 +84,8 @@ export class KanbanView extends BasesView {
   private cardOrder: string[] = [];
   private entryByPath = new Map<string, BasesEntry>();
   private scrollSaveTimeout: number | null = null;
-  private backgroundManagerState: BackgroundManagerState;
   private viewSessionId: string;
-  private scrollRevision = 0;
-  private pendingLocalScrollRevision: number | null = null;
   private hasRenderedBoard = false;
-  private lastPersistedScrollState: { left: number; top: number } | null = null;
   private localCardOrderCache: CardOrderCache = { order: null, raw: "" };
   private columnOrderCache: ColumnOrderCache = { order: null, raw: "" };
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
@@ -147,7 +139,6 @@ export class KanbanView extends BasesView {
     super(controller);
     this.plugin = plugin;
     this.viewSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    this.backgroundManagerState = createBackgroundManagerState();
     this.selectionState = createSelectionState();
     this.selectedPathsStore = writable(this.selectionState.selectedPaths);
     this.rootEl = containerEl.createDiv({ cls: "bases-kanban-container" });
@@ -155,36 +146,7 @@ export class KanbanView extends BasesView {
   }
 
   onDataUpdated(): void {
-    if (this.shouldSkipRenderForOwnScrollUpdate()) {
-      logRenderEvent("SKIPPED render - own scroll update detected");
-      return;
-    }
     this.render();
-  }
-
-  private shouldSkipRenderForOwnScrollUpdate(): boolean {
-    if (this.pendingLocalScrollRevision === null) {
-      return false;
-    }
-
-    const scrollState = loadScrollState(
-      (key) => this.config?.get(key),
-      BOARD_SCROLL_STATE_KEY,
-    );
-    if (
-      scrollState !== null &&
-      scrollState.sessionId === this.viewSessionId &&
-      scrollState.revision === this.pendingLocalScrollRevision
-    ) {
-      logScrollEvent("Confirmed own scroll revision match", {
-        revision: this.pendingLocalScrollRevision,
-        sessionId: this.viewSessionId.slice(0, 8) + "...",
-      });
-      this.pendingLocalScrollRevision = null;
-      return true;
-    }
-
-    return false;
   }
 
   private render(): void {
@@ -360,24 +322,25 @@ export class KanbanView extends BasesView {
   }
 
   private applyBackgroundStyles(): void {
-    const app = this.app as App;
-    const config = {
-      imageInput: this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
-      brightness:
-        (this.config?.get(BACKGROUND_BRIGHTNESS_OPTION_KEY) as number | undefined) ??
-        this.plugin.settings.backgroundBrightness,
-      blur:
-        (this.config?.get(BACKGROUND_BLUR_OPTION_KEY) as number | undefined) ??
-        this.plugin.settings.backgroundBlur,
-      columnTransparency:
-        (this.config?.get(COLUMN_TRANSPARENCY_OPTION_KEY) as number | undefined) ??
-        this.plugin.settings.columnTransparency,
-      columnBlur:
-        (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
-        this.plugin.settings.columnBlur,
-    };
+    // Apply column transparency CSS variable
+    const columnTransparency =
+      (this.config?.get(COLUMN_TRANSPARENCY_OPTION_KEY) as number | undefined) ??
+      this.plugin.settings.columnTransparency;
+    const columnTransparencyValue = Math.max(0, Math.min(100, columnTransparency)) / 100;
+    this.rootEl.style.setProperty(
+      "--bases-kanban-column-transparency",
+      String(columnTransparencyValue),
+    );
 
-    applyBackground(app, this.rootEl, this.backgroundManagerState, config);
+    // Apply column blur CSS variable
+    const columnBlur =
+      (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
+      this.plugin.settings.columnBlur;
+    const columnBlurValue = Math.max(0, Math.min(20, columnBlur));
+    this.rootEl.style.setProperty(
+      "--bases-kanban-column-blur",
+      `${columnBlurValue}px`,
+    );
   }
 
   private handleCardLinkClick(evt: MouseEvent, target: string): void {
@@ -909,28 +872,13 @@ export class KanbanView extends BasesView {
     }
     this.scrollSaveTimeout = window.setTimeout(() => {
       logScrollEvent("Executing debounced scroll save");
-      if (
-        this.lastPersistedScrollState !== null &&
-        this.lastPersistedScrollState.left === scrollLeft &&
-        this.lastPersistedScrollState.top === scrollTop
-      ) {
-        logScrollEvent("Scroll save skipped - no change", {
-          scrollLeft,
-          scrollTop,
-        });
-        return;
-      }
-
-      this.scrollRevision = saveBoardScrollState(
+      saveBoardScrollState(
         (key, value) => this.config?.set(key, value),
         BOARD_SCROLL_STATE_KEY,
         scrollLeft,
         scrollTop,
         this.viewSessionId,
-        this.scrollRevision,
       );
-      this.pendingLocalScrollRevision = this.scrollRevision;
-      this.lastPersistedScrollState = { left: scrollLeft, top: scrollTop };
       this.scrollSaveTimeout = null;
     }, this.plugin.settings.scrollDebounceMs);
   }

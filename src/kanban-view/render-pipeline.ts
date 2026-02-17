@@ -127,11 +127,4 @@ export function buildRenderedGroups(
   }));
 }
 
-// Note: Signature hashing has been removed as it's O(cards × properties) expensive.
-// Svelte's keyed each blocks handle efficient DOM updates without needing manual
-// signature comparison. The render pipeline now relies on Svelte's reactivity system.
 
-// Note: Column snapshot functions have been removed.
-// Svelte's keyed each blocks (key={entry.file.path}) handle efficient DOM updates
-// without needing manual column change detection. Svelte reuses DOM elements
-// when the key matches, which is more efficient than our snapshot-based approach.

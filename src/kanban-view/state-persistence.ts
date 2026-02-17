@@ -6,8 +6,6 @@ export type BoardScrollState = {
   left: number;
   top: number;
   sessionId: string;
-  revision: number;
-  updatedAt: number;
 };
 
 export type ScrollPosition = {
@@ -23,14 +21,10 @@ export function saveBoardScrollState(
   scrollLeft: number,
   scrollTop: number,
   viewSessionId: string,
-  scrollRevision: number,
-): number {
-  const nextRevision = scrollRevision + 1;
-
+): void {
   logScrollEvent("Scroll position saved", {
     scrollLeft,
     scrollTop,
-    revision: nextRevision,
     sessionId: viewSessionId.slice(0, 8) + "...",
   });
 
@@ -38,12 +32,9 @@ export function saveBoardScrollState(
     left: scrollLeft,
     top: scrollTop,
     sessionId: viewSessionId,
-    revision: nextRevision,
-    updatedAt: Date.now(),
   };
 
   setConfig(stateKey, JSON.stringify(scrollState));
-  return nextRevision;
 }
 
 export function loadScrollState(
@@ -62,8 +53,7 @@ export function loadScrollState(
       parsed === null ||
       !("left" in parsed) ||
       !("top" in parsed) ||
-      !("sessionId" in parsed) ||
-      !("revision" in parsed)
+      !("sessionId" in parsed)
     ) {
       return null;
     }
@@ -72,8 +62,6 @@ export function loadScrollState(
       left: unknown;
       top: unknown;
       sessionId: unknown;
-      revision: unknown;
-      updatedAt?: unknown;
     };
 
     const left =
@@ -86,16 +74,8 @@ export function loadScrollState(
         : 0;
     const sessionId =
       typeof state.sessionId === "string" ? state.sessionId : "";
-    const revision =
-      typeof state.revision === "number" && !Number.isNaN(state.revision)
-        ? state.revision
-        : 0;
-    const updatedAt =
-      typeof state.updatedAt === "number" && !Number.isNaN(state.updatedAt)
-        ? state.updatedAt
-        : 0;
 
-    return { left, top, sessionId, revision, updatedAt };
+    return { left, top, sessionId };
   } catch {
     return null;
   }
