@@ -5,6 +5,7 @@
     parseWikiLinks,
     getHashColor,
   } from "../kanban-view/utils";
+  import type { createCardDragState } from "../kanban-view/drag-state";
 
   interface Props {
     entry: BasesEntry;
@@ -20,15 +21,12 @@
     tagSaturation: number;
     tagLightness: number;
     tagAlpha: number;
-    isDraggingSource: boolean;
-    isDropTarget: boolean;
-    dropPlacement: "before" | "after" | null;
+    cardDragState: ReturnType<typeof createCardDragState>;
     onSelect: (filePath: string, extendSelection: boolean) => void;
     onDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => void;
     onDragEnd: () => void;
-    onDragOver: (evt: DragEvent, filePath: string) => void;
-    onDragLeave: (filePath: string) => void;
-    onDrop: (evt: DragEvent, filePath: string) => void;
+    onSetDropTarget: (targetPath: string | null, placement: "before" | "after" | null) => void;
+    onDrop: (evt: DragEvent, filePath: string | null, groupKey: unknown) => void;
     onContextMenu: (evt: MouseEvent) => void;
     onLinkClick: (evt: MouseEvent, target: string) => void;
   }
@@ -47,14 +45,11 @@
     tagSaturation,
     tagLightness,
     tagAlpha,
-    isDraggingSource,
-    isDropTarget,
-    dropPlacement,
+    cardDragState,
     onSelect,
     onDragStart,
     onDragEnd,
-    onDragOver,
-    onDragLeave,
+    onSetDropTarget,
     onDrop,
     onContextMenu,
     onLinkClick,
@@ -71,6 +66,15 @@
     (propertyId) =>
       propertyId !== "file.name" && propertyId !== groupByProperty,
   );
+
+  // Extract stores to local variables
+  const cardTargetPath = cardDragState.targetPath;
+  const cardPlacement = cardDragState.placement;
+
+  // Reactive state using methods
+  const isDraggingSource = $derived(cardDragState.isDraggingSource(filePath));
+  const isDropTarget = $derived(cardDragState.isDropTarget(filePath));
+  const dropPlacement = $derived(cardDragState.getDropPlacement(filePath));
 
   function getCardTitle(
     entry: BasesEntry,
@@ -121,7 +125,14 @@
     if (groupByProperty === null) return;
     evt.preventDefault();
     evt.stopPropagation();
-    onDragOver(evt, filePath);
+
+    // Calculate drop placement based on mouse position
+    if (cardEl !== null) {
+      const rect = cardEl.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const placement = evt.clientY < midY ? "before" : "after";
+      onSetDropTarget(filePath, placement);
+    }
   }
 
   function handleDragLeave(evt: DragEvent): void {
@@ -129,14 +140,14 @@
     if (cardEl !== null && relatedTarget !== null && cardEl.contains(relatedTarget)) {
       return;
     }
-    onDragLeave(filePath);
+    onSetDropTarget(null, null);
   }
 
   function handleDrop(evt: DragEvent): void {
     if (groupByProperty === null) return;
     evt.preventDefault();
     evt.stopPropagation();
-    onDrop(evt, filePath);
+    onDrop(evt, filePath, groupKey);
   }
 
   function handleContextMenu(evt: MouseEvent): void {

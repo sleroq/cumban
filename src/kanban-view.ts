@@ -39,7 +39,6 @@ import {
   hasConfiguredGroupBy,
 } from "./kanban-view/utils";
 import { buildEntryIndexes } from "./kanban-view/indexing";
-import { KanbanDragController } from "./kanban-view/drag-controller";
 import { KanbanMutationService } from "./kanban-view/mutations";
 import {
   type ColumnOrderCache,
@@ -83,7 +82,6 @@ import KanbanRoot from "./components/KanbanRoot.svelte";
 export class KanbanView extends BasesView {
   type = "kanban";
   private readonly rootEl: HTMLElement;
-  private readonly dragController: KanbanDragController;
   private readonly mutationService: KanbanMutationService;
   private readonly plugin: BasesKanbanPlugin;
   private selectionState: SelectionState;
@@ -103,8 +101,10 @@ export class KanbanView extends BasesView {
   private partialRenderCount = 0;
   private static readonly PARTIAL_RENDER_REBUILD_THRESHOLD = 10;
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
-  private dragRafId: number | null = null;
-  private latestCardDragClientY = 0;
+
+  // Drag state (replaces drag-controller)
+  private draggingCardSourcePath: string | null = null;
+  private draggingColumnSourceKey: string | null = null;
 
   constructor(
     controller: QueryController,
@@ -117,7 +117,6 @@ export class KanbanView extends BasesView {
     this.backgroundManagerState = createBackgroundManagerState();
     this.selectionState = createSelectionState();
     this.rootEl = containerEl.createDiv({ cls: "bases-kanban-container" });
-    this.dragController = new KanbanDragController(this.rootEl);
     this.mutationService = new KanbanMutationService(this.app as App);
   }
 
@@ -321,30 +320,26 @@ export class KanbanView extends BasesView {
           this.plugin.settings.columnTransparency,
         columnBlur: (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
           this.plugin.settings.columnBlur,
-        draggingColumnKey: this.dragController.getColumnDragSourceKey(),
-        columnDropTargetKey: null,
-        columnDropPlacement: this.dragController.getColumnDropPlacement(),
-        draggingSourcePath: this.dragController.getCardDragSourcePath(),
-        cardDropTargetPath: this.dragController.getCardDropTargetPath(),
-        cardDropPlacement: this.dragController.getCardDropPlacement(),
-        onStartColumnDrag: (evt: DragEvent, columnKey: string) => this.startColumnDrag(evt, columnKey),
-        onEndColumnDrag: () => this.endColumnDrag(),
-        onColumnDragOver: (evt: DragEvent, columnKey: string) => this.handleColumnDragOver(evt, columnKey),
-        onColumnDragLeave: () => this.clearColumnDropIndicator(),
-        onColumnDrop: (evt: DragEvent, columnKey: string) => this.handleColumnDropFromEvent(evt, columnKey),
-        onCreateCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => this.createCardForColumn(groupByProperty, groupKey),
+        onCreateCard: (grpByProperty: BasesPropertyId | null, grpKey: unknown) => this.createCardForColumn(grpByProperty, grpKey),
         onCardSelect: (filePath: string, extendSelection: boolean) => this.selectCard(filePath, extendSelection),
-        onCardDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => this.startDrag(evt, filePath, cardIndex),
-        onCardDragEnd: () => this.endDrag(),
-        onCardDragOver: (evt: DragEvent, filePath: string) => this.handleCardDragOver(evt, filePath),
-        onCardDragLeave: (filePath: string) => this.handleCardDragLeave(filePath),
-        onCardDrop: (evt: DragEvent, filePath: string | null, groupKey: unknown) => this.handleCardDropFromEvent(evt, filePath, groupKey),
+        onCardDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => this.startCardDrag(evt, filePath, cardIndex),
+        onCardDragEnd: () => this.endCardDrag(),
+        onSetCardDropTarget: (_targetPath: string | null, _placement: "before" | "after" | null) => {
+          // Drop target state is now managed in Svelte components
+        },
+        onCardDrop: (evt: DragEvent, filePath: string | null, grpKey: unknown) => this.handleCardDrop(evt, filePath, grpKey),
         onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => this.showCardContextMenu(evt, entry.file),
         onCardLinkClick: (evt: MouseEvent, target: string) => this.handleCardLinkClick(evt, target),
         onCardsScroll: (columnKey: string, scrollTop: number) => this.handleColumnScroll(columnKey, scrollTop),
         onBoardScroll: (scrollLeft: number, scrollTop: number) => this.debouncedSaveBoardScrollPosition(scrollLeft, scrollTop),
         onBoardKeyDown: (evt: KeyboardEvent) => this.handleKeyDown(evt),
         onBoardClick: () => this.clearSelection(),
+        onStartColumnDrag: (evt: DragEvent, columnKey: string) => this.startColumnDrag(evt, columnKey),
+        onEndColumnDrag: () => this.endColumnDrag(),
+        onSetColumnDropTarget: (_targetKey: string | null, _placement: "before" | "after" | null) => {
+          // Drop target state is now managed in Svelte components
+        },
+        onColumnDrop: (targetKey: string, placement: "before" | "after") => this.handleColumnDrop(targetKey, placement),
       },
     });
   }
@@ -380,73 +375,6 @@ export class KanbanView extends BasesView {
     };
 
     applyBackground(app, this.rootEl, this.backgroundManagerState, config);
-  }
-
-  private handleColumnDragOver(evt: DragEvent, columnKey: string): void {
-    if (this.dragRafId !== null) {
-      return;
-    }
-
-    this.dragRafId = window.requestAnimationFrame(() => {
-      this.dragRafId = null;
-      const draggingColumnKey = this.dragController.getColumnDragSourceKey();
-      if (draggingColumnKey === null) return;
-
-      const columnEl = this.rootEl.querySelector<HTMLElement>(`[data-column-key="${columnKey}"]`);
-      if (columnEl === null) return;
-
-      const rect = columnEl.getBoundingClientRect();
-      const placement = evt.clientX < rect.left + rect.width / 2 ? "before" : "after";
-      this.setColumnDropIndicator(columnKey, placement);
-    });
-  }
-
-  private handleColumnDropFromEvent(evt: DragEvent, columnKey: string): void {
-    evt.preventDefault();
-    if (this.dragRafId !== null) {
-      window.cancelAnimationFrame(this.dragRafId);
-      this.dragRafId = null;
-    }
-    const placement = this.dragController.getColumnDropPlacement() ?? "before";
-    this.handleColumnDrop(columnKey, placement);
-  }
-
-  private handleCardDragOver(evt: DragEvent, filePath: string): void {
-    if (this.dragRafId !== null) {
-      return;
-    }
-
-    this.dragRafId = window.requestAnimationFrame(() => {
-      this.dragRafId = null;
-      if (this.dragController.getCardDragSourcePath() === null) return;
-
-      const cardEl = this.rootEl.querySelector<HTMLElement>(`[data-card-path="${filePath}"]`);
-      if (cardEl === null) return;
-
-      const rect = cardEl.getBoundingClientRect();
-      const placement = this.latestCardDragClientY < rect.top + rect.height / 2 ? "before" : "after";
-      this.setCardDropIndicator(filePath, placement);
-    });
-
-    this.latestCardDragClientY = evt.clientY;
-  }
-
-  private handleCardDragLeave(filePath: string): void {
-    if (this.dragController.getCardDropTargetPath() === filePath) {
-      this.clearCardDropIndicator();
-    }
-  }
-
-  private handleCardDropFromEvent(evt: DragEvent, filePath: string | null, groupKey: unknown): void {
-    evt.preventDefault();
-    if (this.dragRafId !== null) {
-      window.cancelAnimationFrame(this.dragRafId);
-      this.dragRafId = null;
-    }
-    this.clearCardDropIndicator();
-    const targetPath = filePath;
-    const placement = this.dragController.getCardDropPlacement() ?? "after";
-    void this.handleDropFromProps(groupKey, targetPath, placement);
   }
 
   private handleCardLinkClick(evt: MouseEvent, target: string): void {
@@ -783,7 +711,8 @@ export class KanbanView extends BasesView {
     }
   }
 
-  private startDrag(evt: DragEvent, filePath: string, cardIndex: number): void {
+  // Card drag handlers (replaces drag-controller)
+  private startCardDrag(evt: DragEvent, filePath: string, cardIndex: number): void {
     const draggedPaths = getDraggedPathsState(
       this.selectionState,
       filePath,
@@ -804,55 +733,70 @@ export class KanbanView extends BasesView {
       this.updateSvelteProps();
     }
 
-    this.dragController.startCardDrag(evt, filePath);
+    this.draggingCardSourcePath = filePath;
+
+    if (evt.dataTransfer !== null) {
+      evt.dataTransfer.effectAllowed = "move";
+      evt.dataTransfer.setData("text/plain", filePath);
+    }
   }
 
-  private endDrag(): void {
+  private endCardDrag(): void {
     logDragEvent("Card drag ended");
-    this.dragController.endCardDrag();
+    this.draggingCardSourcePath = null;
   }
 
-  private setCardDropIndicator(
-    targetPath: string,
-    placement: "before" | "after",
-  ): void {
-    this.dragController.setCardDropIndicator(targetPath, placement, (path) =>
-      this.rootEl.querySelector<HTMLElement>(`[data-card-path="${path}"]`),
+  private async handleCardDrop(
+    _evt: DragEvent,
+    targetPath: string | null,
+    groupKey: unknown,
+  ): Promise<void> {
+    if (this.draggingCardSourcePath === null) {
+      logDragEvent("Drop aborted - no dragging source");
+      return;
+    }
+
+    const rawGroups: BasesEntryGroup[] = this.data?.groupedData ?? [];
+    const groupByProperty = detectGroupByProperty(
+      rawGroups,
+      getPropertyCandidates(
+        getSelectedProperties(this.data?.properties),
+        this.allProperties,
+      ),
     );
+
+    if (groupByProperty === null) {
+      logDragEvent("Drop aborted - no group by property");
+      return;
+    }
+
+    // Get drop placement from the event or default to "after"
+    const placement: "before" | "after" = "after";
+
+    await this.handleDrop(groupByProperty, groupKey, targetPath, placement);
   }
 
-  private clearCardDropIndicator(): void {
-    this.dragController.clearCardDropIndicator();
-  }
-
+  // Column drag handlers (replaces drag-controller)
   private startColumnDrag(evt: DragEvent, columnKey: string): void {
     logDragEvent("Column drag started", { columnKey });
-    this.dragController.startColumnDrag(evt, columnKey);
+    this.draggingColumnSourceKey = columnKey;
+
+    if (evt.dataTransfer !== null) {
+      evt.dataTransfer.effectAllowed = "move";
+      evt.dataTransfer.setData("text/plain", columnKey);
+    }
   }
 
   private endColumnDrag(): void {
     logDragEvent("Column drag ended");
-    this.dragController.endColumnDrag();
-  }
-
-  private setColumnDropIndicator(
-    columnKey: string,
-    placement: "before" | "after",
-  ): void {
-    this.dragController.setColumnDropIndicator(columnKey, placement, (key) =>
-      this.rootEl.querySelector<HTMLElement>(`[data-column-key="${key}"]`),
-    );
-  }
-
-  private clearColumnDropIndicator(): void {
-    this.dragController.clearColumnDropIndicator();
+    this.draggingColumnSourceKey = null;
   }
 
   private handleColumnDrop(
     targetColumnKey: string,
     placement: "before" | "after",
   ): void {
-    const sourceColumnKey = this.dragController.getColumnDragSourceKey();
+    const sourceColumnKey = this.draggingColumnSourceKey;
     logDragEvent("Column dropped", {
       sourceColumnKey: sourceColumnKey ?? "null",
       targetColumnKey,
@@ -917,35 +861,13 @@ export class KanbanView extends BasesView {
     return getDraggedPathsState(this.selectionState, sourcePath, this.cardOrder);
   }
 
-  private async handleDropFromProps(
-    groupKey: unknown,
-    targetPath: string | null,
-    placement: "before" | "after",
-  ): Promise<void> {
-    const rawGroups: BasesEntryGroup[] = this.data?.groupedData ?? [];
-    const groupByProperty = detectGroupByProperty(
-      rawGroups,
-      getPropertyCandidates(
-        getSelectedProperties(this.data?.properties),
-        this.allProperties,
-      ),
-    );
-
-    if (groupByProperty === null) {
-      logDragEvent("Drop aborted - no group by property");
-      return;
-    }
-
-    await this.handleDrop(groupByProperty, groupKey, targetPath, placement);
-  }
-
   private async handleDrop(
     groupByProperty: BasesPropertyId,
     groupKey: unknown,
     targetPath: string | null,
     placement: "before" | "after",
   ): Promise<void> {
-    const draggingSourcePath = this.dragController.getCardDragSourcePath();
+    const draggingSourcePath = this.draggingCardSourcePath;
     if (draggingSourcePath === null) {
       logDragEvent("Drop aborted - no dragging source");
       return;
@@ -985,6 +907,9 @@ export class KanbanView extends BasesView {
       draggedPaths,
       entryByPath: this.entryByPath,
     });
+
+    // Reset drag state
+    this.draggingCardSourcePath = null;
 
     if (sourceColumnKey === targetColumnKey) {
       logDragEvent("Same column drop - skipping render (rely on reactivity)");

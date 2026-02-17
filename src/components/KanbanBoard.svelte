@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BasesEntry, BasesPropertyId, BasesEntryGroup } from "obsidian";
   import KanbanColumn from "./KanbanColumn.svelte";
+  import { createColumnDragState, createCardDragState } from "../kanban-view/drag-state";
 
   interface Props {
     groups: Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>;
@@ -17,23 +18,11 @@
     columnHeaderWidth: number;
     emptyColumnLabel: string;
     addCardButtonText: string;
-    draggingColumnKey: string | null;
-    columnDropTargetKey: string | null;
-    columnDropPlacement: "before" | "after" | null;
-    draggingSourcePath: string | null;
-    cardDropTargetPath: string | null;
-    cardDropPlacement: "before" | "after" | null;
-    onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
-    onEndColumnDrag: () => void;
-    onColumnDragOver: (evt: DragEvent, columnKey: string) => void;
-    onColumnDragLeave: () => void;
-    onColumnDrop: (evt: DragEvent, columnKey: string) => void;
     onCreateCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => void;
     onCardSelect: (filePath: string, extendSelection: boolean) => void;
     onCardDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => void;
     onCardDragEnd: () => void;
-    onCardDragOver: (evt: DragEvent, filePath: string) => void;
-    onCardDragLeave: (filePath: string) => void;
+    onSetCardDropTarget: (targetPath: string | null, placement: "before" | "after" | null) => void;
     onCardDrop: (evt: DragEvent, filePath: string | null, groupKey: unknown) => void;
     onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
     onCardLinkClick: (evt: MouseEvent, target: string) => void;
@@ -41,6 +30,10 @@
     onBoardScroll: (scrollLeft: number, scrollTop: number) => void;
     onBoardKeyDown: (evt: KeyboardEvent) => void;
     onBoardClick: (evt: MouseEvent) => void;
+    onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
+    onEndColumnDrag: () => void;
+    onSetColumnDropTarget: (targetKey: string | null, placement: "before" | "after" | null) => void;
+    onColumnDrop: (targetKey: string, placement: "before" | "after") => void;
   }
 
   let {
@@ -58,23 +51,11 @@
     columnHeaderWidth,
     emptyColumnLabel,
     addCardButtonText,
-    draggingColumnKey,
-    columnDropTargetKey,
-    columnDropPlacement,
-    draggingSourcePath,
-    cardDropTargetPath,
-    cardDropPlacement,
-    onStartColumnDrag,
-    onEndColumnDrag,
-    onColumnDragOver,
-    onColumnDragLeave,
-    onColumnDrop,
     onCreateCard,
     onCardSelect,
     onCardDragStart,
     onCardDragEnd,
-    onCardDragOver,
-    onCardDragLeave,
+    onSetCardDropTarget,
     onCardDrop,
     onCardContextMenu,
     onCardLinkClick,
@@ -82,9 +63,17 @@
     onBoardScroll,
     onBoardKeyDown,
     onBoardClick,
+    onStartColumnDrag,
+    onEndColumnDrag,
+    onSetColumnDropTarget,
+    onColumnDrop,
   }: Props = $props();
 
   let boardEl: HTMLElement | null = $state(null);
+
+  // Create drag state instances at board level
+  const columnDragState = createColumnDragState();
+  const cardDragState = createCardDragState();
 
   function getColumnKey(groupKey: unknown): string {
     if (groupKey === undefined || groupKey === null) {
@@ -105,12 +94,39 @@
     onBoardClick(evt);
   }
 
-  function isColumnDropTarget(columnKey: string): boolean {
-    return columnDropTargetKey === columnKey;
+  // Wrapper functions that include drag state
+  function handleStartColumnDrag(evt: DragEvent, columnKey: string): void {
+    columnDragState.startDrag(columnKey, evt.dataTransfer);
+    onStartColumnDrag(evt, columnKey);
   }
 
-  function getColumnDropPlacement(columnKey: string): "before" | "after" | null {
-    return columnDropTargetKey === columnKey ? columnDropPlacement : null;
+  function handleEndColumnDrag(): void {
+    columnDragState.endDrag();
+    onEndColumnDrag();
+  }
+
+  function handleSetColumnDropTarget(targetKey: string | null, placement: "before" | "after" | null): void {
+    columnDragState.setDropTarget(targetKey, placement);
+  }
+
+  function handleColumnDrop(targetKey: string, placement: "before" | "after"): void {
+    columnDragState.clearDropTarget();
+    onColumnDrop(targetKey, placement);
+  }
+
+  function handleStartCardDrag(evt: DragEvent, filePath: string, cardIndex: number): void {
+    cardDragState.startDrag(filePath, evt.dataTransfer);
+    onCardDragStart(evt, filePath, cardIndex);
+  }
+
+  function handleEndCardDrag(): void {
+    cardDragState.endDrag();
+    onCardDragEnd();
+  }
+
+  function handleSetCardDropTarget(targetPath: string | null, placement: "before" | "after" | null): void {
+    cardDragState.setDropTarget(targetPath, placement);
+    onSetCardDropTarget(targetPath, placement);
   }
 
   let cardIndex = 0;
@@ -150,29 +166,23 @@
       {columnHeaderWidth}
       {emptyColumnLabel}
       {addCardButtonText}
-      isDraggingColumn={draggingColumnKey !== null}
-      isDropTarget={isColumnDropTarget(columnKey)}
-      dropPlacement={getColumnDropPlacement(columnKey)}
-      {draggingSourcePath}
-      {cardDropTargetPath}
-      {cardDropPlacement}
-      {onStartColumnDrag}
-      {onEndColumnDrag}
-      onColumnDragOver={onColumnDragOver}
-      onColumnDragLeave={onColumnDragLeave}
-      onColumnDrop={onColumnDrop}
+      {columnDragState}
+      {cardDragState}
+      onStartColumnDrag={handleStartColumnDrag}
+      onEndColumnDrag={handleEndColumnDrag}
+      onSetColumnDropTarget={handleSetColumnDropTarget}
+      onColumnDrop={handleColumnDrop}
       onCreateCard={() => onCreateCard(groupByProperty, group.key)}
-      {onCardSelect}
-      {onCardDragStart}
-      {onCardDragEnd}
-      {onCardDragOver}
-      {onCardDragLeave}
-      onCardDrop={(evt, filePath) => onCardDrop(evt, filePath, group.key)}
-      {onCardContextMenu}
-      {onCardLinkClick}
+      onCardSelect={onCardSelect}
+      onCardDragStart={handleStartCardDrag}
+      onCardDragEnd={handleEndCardDrag}
+      onSetCardDropTarget={handleSetCardDropTarget}
+      onCardDrop={onCardDrop}
+      onCardContextMenu={onCardContextMenu}
+      onCardLinkClick={onCardLinkClick}
       onCardsScroll={(scrollTop) => onCardsScroll(columnKey, scrollTop)}
-      {onBoardKeyDown}
-      {onBoardClick}
+      onBoardKeyDown={onBoardKeyDown}
+      onBoardClick={onBoardClick}
     />
     {cardIndex = startIndex + entries.length, ""}
   {/each}

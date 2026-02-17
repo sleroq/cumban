@@ -25,23 +25,11 @@
     backgroundBlur: number;
     columnTransparency: number;
     columnBlur: number;
-    draggingColumnKey: string | null;
-    columnDropTargetKey: string | null;
-    columnDropPlacement: "before" | "after" | null;
-    draggingSourcePath: string | null;
-    cardDropTargetPath: string | null;
-    cardDropPlacement: "before" | "after" | null;
-    onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
-    onEndColumnDrag: () => void;
-    onColumnDragOver: (evt: DragEvent, columnKey: string) => void;
-    onColumnDragLeave: () => void;
-    onColumnDrop: (evt: DragEvent, columnKey: string) => void;
     onCreateCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => void;
     onCardSelect: (filePath: string, extendSelection: boolean) => void;
     onCardDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => void;
     onCardDragEnd: () => void;
-    onCardDragOver: (evt: DragEvent, filePath: string) => void;
-    onCardDragLeave: (filePath: string) => void;
+    onSetCardDropTarget: (targetPath: string | null, placement: "before" | "after" | null) => void;
     onCardDrop: (evt: DragEvent, filePath: string | null, groupKey: unknown) => void;
     onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
     onCardLinkClick: (evt: MouseEvent, target: string) => void;
@@ -49,6 +37,10 @@
     onBoardScroll: (scrollLeft: number, scrollTop: number) => void;
     onBoardKeyDown: (evt: KeyboardEvent) => void;
     onBoardClick: (evt: MouseEvent) => void;
+    onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
+    onEndColumnDrag: () => void;
+    onSetColumnDropTarget: (targetKey: string | null, placement: "before" | "after" | null) => void;
+    onColumnDrop: (targetKey: string, placement: "before" | "after") => void;
   }
 
   let {
@@ -73,23 +65,11 @@
     backgroundBlur,
     columnTransparency,
     columnBlur,
-    draggingColumnKey,
-    columnDropTargetKey,
-    columnDropPlacement,
-    draggingSourcePath,
-    cardDropTargetPath,
-    cardDropPlacement,
-    onStartColumnDrag,
-    onEndColumnDrag,
-    onColumnDragOver,
-    onColumnDragLeave,
-    onColumnDrop,
     onCreateCard,
     onCardSelect,
     onCardDragStart,
     onCardDragEnd,
-    onCardDragOver,
-    onCardDragLeave,
+    onSetCardDropTarget,
     onCardDrop,
     onCardContextMenu,
     onCardLinkClick,
@@ -97,6 +77,10 @@
     onBoardScroll,
     onBoardKeyDown,
     onBoardClick,
+    onStartColumnDrag,
+    onEndColumnDrag,
+    onSetColumnDropTarget,
+    onColumnDrop,
   }: Props = $props();
 
   const backgroundConfig = $derived({
@@ -129,23 +113,11 @@
   {columnHeaderWidth}
   {emptyColumnLabel}
   {addCardButtonText}
-  {draggingColumnKey}
-  {columnDropTargetKey}
-  {columnDropPlacement}
-  {draggingSourcePath}
-  {cardDropTargetPath}
-  {cardDropPlacement}
-  {onStartColumnDrag}
-  {onEndColumnDrag}
-  {onColumnDragOver}
-  {onColumnDragLeave}
-  {onColumnDrop}
   {onCreateCard}
   {onCardSelect}
   {onCardDragStart}
   {onCardDragEnd}
-  {onCardDragOver}
-  {onCardDragLeave}
+  {onSetCardDropTarget}
   {onCardDrop}
   {onCardContextMenu}
   {onCardLinkClick}
@@ -153,4 +125,8 @@
   {onBoardScroll}
   {onBoardKeyDown}
   {onBoardClick}
+  {onStartColumnDrag}
+  {onEndColumnDrag}
+  {onSetColumnDropTarget}
+  {onColumnDrop}
 />
