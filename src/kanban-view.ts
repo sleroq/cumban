@@ -50,6 +50,19 @@ import {
   type KanbanRendererHandlers,
   type RenderContext,
 } from "./kanban-view/renderer";
+import {
+  type ColumnOrderCache,
+  type CardOrderCache,
+  saveBoardScrollState,
+  loadScrollState,
+  loadLegacyScrollPosition,
+  parseColumnOrder,
+  serializeColumnOrder,
+  parseLocalCardOrder,
+  serializeLocalCardOrder,
+  saveColumnScrollPosition,
+  loadColumnScrollPosition,
+} from "./kanban-view/state-persistence";
 
 export class KanbanView extends BasesView {
   type = "kanban";
@@ -79,10 +92,8 @@ export class KanbanView extends BasesView {
   private hasRenderedBoard = false;
   private lastPersistedScrollState: { left: number; top: number } | null = null;
   private lastRenderSignature: string | null = null;
-  private cachedLocalCardOrder: Map<string, string[]> | null = null;
-  private cachedLocalCardOrderRaw = "";
-  private cachedColumnOrder: string[] | null = null;
-  private cachedColumnOrderRaw = "";
+  private localCardOrderCache: CardOrderCache = { order: null, raw: "" };
+  private columnOrderCache: ColumnOrderCache = { order: null, raw: "" };
   private lastColumnPathSnapshots = new Map<string, string[]>();
 
   constructor(
@@ -173,7 +184,10 @@ export class KanbanView extends BasesView {
       return false;
     }
 
-    const scrollState = this.loadScrollState();
+    const scrollState = loadScrollState(
+      (key) => this.config?.get(key),
+      BOARD_SCROLL_STATE_KEY,
+    );
     if (
       scrollState !== null &&
       scrollState.sessionId === this.viewSessionId &&
@@ -495,7 +509,7 @@ export class KanbanView extends BasesView {
     columnKey: string,
     columnEl: HTMLElement,
   ): void {
-    const scrollTop = this.loadColumnScrollPosition(columnKey);
+    const scrollTop = loadColumnScrollPosition(this.viewSessionId, columnKey);
     if (scrollTop <= 0) {
       return;
     }
@@ -510,16 +524,6 @@ export class KanbanView extends BasesView {
         logScrollEvent("Column scroll restored", { columnKey, scrollTop });
       }
     });
-  }
-
-  private loadColumnScrollPosition(columnKey: string): number {
-    const key = `kanban-col-scroll-${this.viewSessionId}-${columnKey}`;
-    const saved = sessionStorage.getItem(key);
-    if (saved === null) {
-      return 0;
-    }
-    const parsed = Number.parseInt(saved, 10);
-    return Number.isNaN(parsed) ? 0 : parsed;
   }
 
   private updateCheapUI(): void {
@@ -788,48 +792,37 @@ export class KanbanView extends BasesView {
     }
     this.scrollSaveTimeout = window.setTimeout(() => {
       logScrollEvent("Executing debounced scroll save");
-      this.saveBoardScrollPosition(scrollLeft, scrollTop);
+      if (
+        this.lastPersistedScrollState !== null &&
+        this.lastPersistedScrollState.left === scrollLeft &&
+        this.lastPersistedScrollState.top === scrollTop
+      ) {
+        logScrollEvent("Scroll save skipped - no change", {
+          scrollLeft,
+          scrollTop,
+        });
+        return;
+      }
+
+      this.scrollRevision = saveBoardScrollState(
+        (key, value) => this.config?.set(key, value),
+        BOARD_SCROLL_STATE_KEY,
+        scrollLeft,
+        scrollTop,
+        this.viewSessionId,
+        this.scrollRevision,
+      );
+      this.pendingLocalScrollRevision = this.scrollRevision;
+      this.lastPersistedScrollState = { left: scrollLeft, top: scrollTop };
       this.scrollSaveTimeout = null;
     }, this.plugin.settings.scrollDebounceMs);
   }
 
-  private saveBoardScrollPosition(scrollLeft: number, scrollTop: number): void {
-    if (
-      this.lastPersistedScrollState !== null &&
-      this.lastPersistedScrollState.left === scrollLeft &&
-      this.lastPersistedScrollState.top === scrollTop
-    ) {
-      logScrollEvent("Scroll save skipped - no change", {
-        scrollLeft,
-        scrollTop,
-      });
-      return;
-    }
-
-    this.scrollRevision += 1;
-    this.pendingLocalScrollRevision = this.scrollRevision;
-    this.lastPersistedScrollState = { left: scrollLeft, top: scrollTop };
-
-    logScrollEvent("Scroll position saved", {
-      scrollLeft,
-      scrollTop,
-      revision: this.scrollRevision,
-      sessionId: this.viewSessionId.slice(0, 8) + "...",
-    });
-
-    const scrollState = {
-      left: scrollLeft,
-      top: scrollTop,
-      sessionId: this.viewSessionId,
-      revision: this.scrollRevision,
-      updatedAt: Date.now(),
-    };
-
-    this.config?.set(BOARD_SCROLL_STATE_KEY, JSON.stringify(scrollState));
-  }
-
   private loadBoardScrollPosition(): { scrollLeft: number; scrollTop: number } {
-    const scrollState = this.loadScrollState();
+    const scrollState = loadScrollState(
+      (key) => this.config?.get(key),
+      BOARD_SCROLL_STATE_KEY,
+    );
     if (scrollState !== null) {
       return {
         scrollLeft: scrollState.left,
@@ -837,85 +830,11 @@ export class KanbanView extends BasesView {
       };
     }
 
-    const scrollLeftValue = this.config?.get(BOARD_SCROLL_POSITION_KEY);
-    const scrollTopValue = this.config?.get(BOARD_SCROLL_TOP_POSITION_KEY);
-
-    let scrollLeft = 0;
-    let scrollTop = 0;
-
-    if (typeof scrollLeftValue === "string" && scrollLeftValue.length > 0) {
-      const parsedLeft = Number.parseInt(scrollLeftValue, 10);
-      if (!Number.isNaN(parsedLeft)) {
-        scrollLeft = parsedLeft;
-      }
-    }
-
-    if (typeof scrollTopValue === "string" && scrollTopValue.length > 0) {
-      const parsedTop = Number.parseInt(scrollTopValue, 10);
-      if (!Number.isNaN(parsedTop)) {
-        scrollTop = parsedTop;
-      }
-    }
-
-    return { scrollLeft, scrollTop };
-  }
-
-  private loadScrollState(): {
-    left: number;
-    top: number;
-    sessionId: string;
-    revision: number;
-    updatedAt: number;
-  } | null {
-    const stateValue = this.config?.get(BOARD_SCROLL_STATE_KEY);
-    if (typeof stateValue !== "string" || stateValue.length === 0) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(stateValue) as unknown;
-      if (
-        typeof parsed !== "object" ||
-        parsed === null ||
-        !("left" in parsed) ||
-        !("top" in parsed) ||
-        !("sessionId" in parsed) ||
-        !("revision" in parsed)
-      ) {
-        return null;
-      }
-
-      const state = parsed as {
-        left: unknown;
-        top: unknown;
-        sessionId: unknown;
-        revision: unknown;
-        updatedAt?: unknown;
-      };
-
-      const left =
-        typeof state.left === "number" && !Number.isNaN(state.left)
-          ? state.left
-          : 0;
-      const top =
-        typeof state.top === "number" && !Number.isNaN(state.top)
-          ? state.top
-          : 0;
-      const sessionId =
-        typeof state.sessionId === "string" ? state.sessionId : "";
-      const revision =
-        typeof state.revision === "number" && !Number.isNaN(state.revision)
-          ? state.revision
-          : 0;
-      const updatedAt =
-        typeof state.updatedAt === "number" && !Number.isNaN(state.updatedAt)
-          ? state.updatedAt
-          : 0;
-
-      return { left, top, sessionId, revision, updatedAt };
-    } catch {
-      return null;
-    }
+    return loadLegacyScrollPosition(
+      (key) => this.config?.get(key),
+      BOARD_SCROLL_POSITION_KEY,
+      BOARD_SCROLL_TOP_POSITION_KEY,
+    );
   }
 
   private renderPlaceholder(): void {
@@ -1297,96 +1216,22 @@ export class KanbanView extends BasesView {
 
   private getLocalCardOrderByColumn(): Map<string, string[]> {
     const configValue = this.config?.get(LOCAL_CARD_ORDER_OPTION_KEY);
-    if (typeof configValue !== "string" || configValue.trim().length === 0) {
-      if (this.cachedLocalCardOrder !== null) {
-        logCacheEvent("Card order cache cleared - empty config");
-        this.cachedLocalCardOrder = null;
-        this.cachedLocalCardOrderRaw = "";
-      }
-      return new Map();
-    }
-
-    if (
-      configValue === this.cachedLocalCardOrderRaw &&
-      this.cachedLocalCardOrder !== null
-    ) {
-      logCacheEvent("Card order cache HIT");
-      return this.cachedLocalCardOrder;
-    }
-
-    logCacheEvent("Card order cache MISS - parsing config");
-
-    try {
-      const parsedValue = JSON.parse(configValue) as unknown;
-      if (parsedValue === null || typeof parsedValue !== "object") {
-        this.cachedLocalCardOrder = null;
-        this.cachedLocalCardOrderRaw = configValue;
-        return new Map();
-      }
-
-      const orderByColumn = new Map<string, string[]>();
-      for (const [columnKey, pathsValue] of Object.entries(parsedValue)) {
-        if (!Array.isArray(pathsValue) || columnKey.trim().length === 0) {
-          continue;
-        }
-
-        const paths: string[] = [];
-        const seenPaths = new Set<string>();
-        for (const pathValue of pathsValue) {
-          if (typeof pathValue !== "string" || pathValue.length === 0) {
-            continue;
-          }
-
-          if (seenPaths.has(pathValue)) {
-            continue;
-          }
-
-          seenPaths.add(pathValue);
-          paths.push(pathValue);
-        }
-
-        if (paths.length > 0) {
-          orderByColumn.set(columnKey, paths);
-        }
-      }
-
-      this.cachedLocalCardOrder = orderByColumn;
-      this.cachedLocalCardOrderRaw = configValue;
-      logCacheEvent("Card order cache SAVED", {
-        columnCount: orderByColumn.size,
-      });
-      return orderByColumn;
-    } catch {
-      logCacheEvent("Card order parse FAILED");
-      this.cachedLocalCardOrder = null;
-      this.cachedLocalCardOrderRaw = configValue;
-      return new Map();
-    }
+    const { order, cache } = parseLocalCardOrder(
+      configValue,
+      this.localCardOrderCache,
+    );
+    this.localCardOrderCache = cache;
+    return order;
   }
 
   private setLocalCardOrderByColumn(
     orderByColumn: Map<string, string[]>,
   ): void {
-    this.cachedLocalCardOrder = null;
-    this.cachedLocalCardOrderRaw = "";
-
-    if (orderByColumn.size === 0) {
-      this.config?.set(LOCAL_CARD_ORDER_OPTION_KEY, "");
-      return;
-    }
-
-    const serialized: Record<string, string[]> = {};
-    for (const [columnKey, paths] of orderByColumn.entries()) {
-      if (paths.length === 0) {
-        continue;
-      }
-
-      serialized[columnKey] = paths;
-    }
-
-    const nextConfigValue =
-      Object.keys(serialized).length === 0 ? "" : JSON.stringify(serialized);
-    this.config?.set(LOCAL_CARD_ORDER_OPTION_KEY, nextConfigValue);
+    this.localCardOrderCache = { order: null, raw: "" };
+    this.config?.set(
+      LOCAL_CARD_ORDER_OPTION_KEY,
+      serializeLocalCardOrder(orderByColumn),
+    );
   }
 
   private updateLocalCardOrderForDrop(
@@ -1694,8 +1539,7 @@ export class KanbanView extends BasesView {
 
   private handleColumnScroll(columnKey: string, scrollTop: number): void {
     // Save column scroll position for partial render restoration
-    const key = `kanban-col-scroll-${this.viewSessionId}-${columnKey}`;
-    sessionStorage.setItem(key, String(scrollTop));
+    saveColumnScrollPosition(this.viewSessionId, columnKey, scrollTop);
   }
 
   private sortGroupsByColumnOrder(
@@ -1749,40 +1593,17 @@ export class KanbanView extends BasesView {
 
   private getColumnOrderFromConfig(): string[] {
     const configValue = this.config?.get(COLUMN_ORDER_OPTION_KEY);
-    if (typeof configValue !== "string" || configValue.trim().length === 0) {
-      if (this.cachedColumnOrder !== null) {
-        logCacheEvent("Column order cache cleared - empty config");
-        this.cachedColumnOrder = null;
-        this.cachedColumnOrderRaw = "";
-      }
-      return [];
-    }
-
-    if (
-      configValue === this.cachedColumnOrderRaw &&
-      this.cachedColumnOrder !== null
-    ) {
-      logCacheEvent("Column order cache HIT");
-      return this.cachedColumnOrder;
-    }
-
-    logCacheEvent("Column order cache MISS - parsing config");
-
-    const result = configValue
-      .split(",")
-      .map((columnKey) => columnKey.trim())
-      .filter((columnKey) => columnKey.length > 0);
-
-    this.cachedColumnOrder = result;
-    this.cachedColumnOrderRaw = configValue;
-    logCacheEvent("Column order cache SAVED", { orderCount: result.length });
-    return result;
+    const { order, cache } = parseColumnOrder(
+      configValue,
+      this.columnOrderCache,
+    );
+    this.columnOrderCache = cache;
+    return order;
   }
 
   private updateColumnOrder(columnOrder: string[]): void {
-    this.cachedColumnOrder = null;
-    this.cachedColumnOrderRaw = "";
-    this.config?.set(COLUMN_ORDER_OPTION_KEY, columnOrder.join(","));
+    this.columnOrderCache = { order: null, raw: "" };
+    this.config?.set(COLUMN_ORDER_OPTION_KEY, serializeColumnOrder(columnOrder));
   }
 
   private getDraggedPaths(sourcePath: string): string[] {
