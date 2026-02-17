@@ -190,13 +190,18 @@
     }}
     ondrop={(evt) => {
       evt.preventDefault();
-      // Only handle empty-space drops when no specific card is targeted
-      const hasCardTarget = cardDragState.getTargetPath() !== null;
-      if (hasCardTarget) {
-        // A specific card was targeted - let the card's drop handler handle this
+      // Check if drop actually occurred on the cards container (empty space)
+      // versus bubbling up from a card element. The target is the element
+      // that received the drop, which could be the container or a card.
+      const dropTarget = evt.target as HTMLElement;
+      const isDropOnContainer = dropTarget === cardsEl ||
+        (dropTarget !== null && dropTarget.classList?.contains("bases-kanban-cards"));
+      if (!isDropOnContainer) {
+        // Drop was on a card element - let the card's drop handler handle this
         return;
       }
-      // Empty space drop - use column's group key
+      // Empty space drop - clear any stale card target and use column's group key
+      onSetCardDropTarget(null, null, null);
       const placement = cardDragState.getPlacement() ?? "after";
       onCardDrop(evt, null, groupKey, placement);
     }}
