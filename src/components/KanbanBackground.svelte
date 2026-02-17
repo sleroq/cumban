@@ -15,7 +15,8 @@
 
   // Background element reference
   let bgEl: HTMLDivElement | null = $state(null);
-  let currentImageCleanup: (() => void) | null = $state(null);
+  // Not using $state - this is imperative cleanup logic, not reactive UI state
+  let currentImageCleanup: (() => void) | null = null;
 
   // Apply background image when URL changes
   $effect(() => {
