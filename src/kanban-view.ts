@@ -56,6 +56,7 @@ import {
   saveColumnScrollPosition,
   loadColumnScrollPosition,
 } from "./kanban-view/state-persistence";
+import { resolveBackgroundStyles } from "./kanban-view/background-manager";
 
 import {
   type RenderedGroup,
@@ -322,24 +323,32 @@ export class KanbanView extends BasesView {
   }
 
   private applyBackgroundStyles(): void {
+    // Build background config from current settings
+    const config = {
+      imageInput: this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
+      brightness: (this.config?.get(BACKGROUND_BRIGHTNESS_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.backgroundBrightness,
+      blur: (this.config?.get(BACKGROUND_BLUR_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.backgroundBlur,
+      columnTransparency: (this.config?.get(COLUMN_TRANSPARENCY_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.columnTransparency,
+      columnBlur: (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.columnBlur,
+    };
+
+    // Resolve styles using the centralized function
+    const styles = resolveBackgroundStyles(this.app as App, config);
+
     // Apply column transparency CSS variable
-    const columnTransparency =
-      (this.config?.get(COLUMN_TRANSPARENCY_OPTION_KEY) as number | undefined) ??
-      this.plugin.settings.columnTransparency;
-    const columnTransparencyValue = Math.max(0, Math.min(100, columnTransparency)) / 100;
     this.rootEl.style.setProperty(
       "--bases-kanban-column-transparency",
-      String(columnTransparencyValue),
+      String(styles.columnTransparencyValue),
     );
 
     // Apply column blur CSS variable
-    const columnBlur =
-      (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
-      this.plugin.settings.columnBlur;
-    const columnBlurValue = Math.max(0, Math.min(20, columnBlur));
     this.rootEl.style.setProperty(
       "--bases-kanban-column-blur",
-      `${columnBlurValue}px`,
+      `${styles.columnBlurValue}px`,
     );
   }
 

@@ -56,7 +56,6 @@
   <div
     bind:this={bgEl}
     class="bases-kanban-background"
-    style:background-image={styles.imageUrl ? `url("${styles.imageUrl}")` : null}
     style:filter={styles.backgroundFilter}
   ></div>
 {/if}
