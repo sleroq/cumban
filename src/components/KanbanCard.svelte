@@ -64,6 +64,7 @@
 
   let cardEl: HTMLElement | null = $state(null);
   let isDraggable: boolean = $state(false);
+  let rafId: number | null = $state(null);
 
   const filePath = $derived(entry.file.path);
   const fullTitle = $derived(getCardTitle(entry, cardTitleSource));
@@ -126,18 +127,35 @@
     onDragStart(evt, filePath, cardIndex);
   }
 
+  function handleDragEnd(): void {
+    // Cancel any pending RAF callback
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    onDragEnd();
+  }
+
   function handleDragOver(evt: DragEvent): void {
     if (groupByProperty === null) return;
     evt.preventDefault();
     evt.stopPropagation();
 
-    // Calculate drop placement based on mouse position
-    if (cardEl !== null) {
-      const rect = cardEl.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      const placement = evt.clientY < midY ? "before" : "after";
-      onSetDropTarget(filePath, columnKey, placement);
+    // Throttle drop target calculation via requestAnimationFrame
+    // to reduce churn during drag operations
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
     }
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      // Calculate drop placement based on mouse position
+      if (cardEl !== null) {
+        const rect = cardEl.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const placement = evt.clientY < midY ? "before" : "after";
+        onSetDropTarget(filePath, columnKey, placement);
+      }
+    });
   }
 
   function handleDragLeave(evt: DragEvent): void {
@@ -157,6 +175,11 @@
     if (groupByProperty === null) return;
     evt.preventDefault();
     evt.stopPropagation();
+    // Cancel any pending RAF callback to prevent stale state updates
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
     const placement = cardDragState.getDropPlacement(filePath) ?? "after";
     onDrop(evt, filePath, groupKey, placement);
   }
@@ -207,7 +230,7 @@
   onmouseup={handleMouseUp}
   onkeydown={handleKeyDown}
   ondragstart={handleDragStart}
-  ondragend={onDragEnd}
+  ondragend={handleDragEnd}
   ondragover={handleDragOver}
   ondragleave={handleDragLeave}
   ondrop={handleDrop}

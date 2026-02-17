@@ -86,6 +86,7 @@
   let columnEl: HTMLElement | null = $state(null);
   let cardsEl: HTMLElement | null = $state(null);
   let scrollTimeout: ReturnType<typeof setTimeout> | null = $state(null);
+  let columnRafId: number | null = $state(null);
 
   const columnName = $derived(getColumnName(groupKey, emptyColumnLabel));
 
@@ -116,12 +117,19 @@
   ondragover={(evt) => {
     if (!$columnIsDragging) return;
     evt.preventDefault();
-    if (columnEl !== null) {
-      const rect = columnEl.getBoundingClientRect();
-      const midX = rect.left + rect.width / 2;
-      const placement = evt.clientX < midX ? "before" : "after";
-      onSetColumnDropTarget(columnKey, placement);
+    // Throttle via requestAnimationFrame to reduce churn
+    if (columnRafId !== null) {
+      cancelAnimationFrame(columnRafId);
     }
+    columnRafId = requestAnimationFrame(() => {
+      columnRafId = null;
+      if (columnEl !== null) {
+        const rect = columnEl.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        const placement = evt.clientX < midX ? "before" : "after";
+        onSetColumnDropTarget(columnKey, placement);
+      }
+    });
   }}
   ondragleave={(evt) => {
     const relatedTarget = evt.relatedTarget as Node | null;
@@ -138,6 +146,11 @@
   ondrop={(evt) => {
     if (!$columnIsDragging) return;
     evt.preventDefault();
+    // Cancel pending RAF
+    if (columnRafId !== null) {
+      cancelAnimationFrame(columnRafId);
+      columnRafId = null;
+    }
     const placement = columnDragState.getDropPlacement(columnKey) ?? "before";
     onSetColumnDropTarget(null, null);
     onColumnDrop(columnKey, placement);
@@ -152,7 +165,14 @@
       class="bases-kanban-column-handle"
       draggable="true"
       ondragstart={(evt) => onStartColumnDrag(evt, columnKey)}
-      ondragend={onEndColumnDrag}
+      ondragend={() => {
+        // Cancel pending RAF
+        if (columnRafId !== null) {
+          cancelAnimationFrame(columnRafId);
+          columnRafId = null;
+        }
+        onEndColumnDrag();
+      }}
       role="button"
       tabindex="0"
       aria-label="Drag to reorder column"
