@@ -202,6 +202,8 @@ export class KanbanView extends BasesView {
       tagAlpha: number;
     },
     localCardOrderByColumn: Map<string, string[]>,
+    selectedProperties: BasesPropertyId[],
+    groupByProperty: BasesPropertyId | null,
   ): string {
     const groupKeys = groups.map((g) => getColumnKey(g.key)).join("|");
     const entryPaths = groups
@@ -211,16 +213,72 @@ export class KanbanView extends BasesView {
     const localOrderHash = JSON.stringify([
       ...localCardOrderByColumn.entries(),
     ]);
-    const signature = `${groupKeys}::${entryPaths}::${settingsHash}::${localOrderHash}`;
+
+    // Compute property values hash for visible properties
+    // This ensures re-render when card properties (like tags) change
+    const propertiesToTrack = selectedProperties.filter(
+      (propertyId) =>
+        propertyId !== "file.name" && propertyId !== groupByProperty,
+    );
+
+    const propertyValuesHash = this.computePropertyValuesHash(
+      groups,
+      propertiesToTrack,
+    );
+
+    const signature = `${groupKeys}::${entryPaths}::${settingsHash}::${localOrderHash}::${propertyValuesHash}`;
 
     logCacheEvent("Computed render signature", {
       groupCount: groups.length,
       entryCount: groups.reduce((sum, g) => sum + g.entries.length, 0),
       hasLocalOrder: localCardOrderByColumn.size > 0,
+      trackedProperties: propertiesToTrack.length,
       signatureLength: signature.length,
     });
 
     return signature;
+  }
+
+  private computePropertyValuesHash(
+    groups: BasesEntryGroup[],
+    propertiesToTrack: BasesPropertyId[],
+  ): string {
+    if (propertiesToTrack.length === 0) {
+      return "";
+    }
+
+    const parts: string[] = [];
+
+    for (const group of groups) {
+      for (const entry of group.entries) {
+        const entryPath = entry.file.path;
+
+        for (const propertyId of propertiesToTrack) {
+          const value = entry.getValue(propertyId);
+          // Normalize value for consistent hashing
+          let valueStr: string;
+
+          if (value === null || value === undefined) {
+            valueStr = "__null__";
+          } else {
+            valueStr = String(value);
+          }
+
+          parts.push(`${entryPath}:${propertyId}=${valueStr}`);
+        }
+      }
+    }
+
+    // Use a simple hash function for the combined string
+    let hash = 0;
+    const combined = parts.join("|");
+
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i);
+      hash = ((hash << 5) - hash + char) | 0;
+    }
+
+    return hash.toString(36);
   }
 
   private canSkipFullRender(currentSignature: string): boolean {
@@ -502,10 +560,20 @@ export class KanbanView extends BasesView {
     };
 
     const localCardOrderByColumn = this.getLocalCardOrderByColumn();
+
+    // Compute these early for signature comparison
+    const selectedProperties = getSelectedProperties(this.data?.properties);
+    const groupByProperty = detectGroupByProperty(
+      rawGroups,
+      getPropertyCandidates(selectedProperties, this.allProperties),
+    );
+
     const currentSignature = this.computeRenderSignature(
       groups,
       displaySettings,
       localCardOrderByColumn,
+      selectedProperties,
+      groupByProperty,
     );
 
     if (this.canSkipFullRender(currentSignature)) {
@@ -544,12 +612,6 @@ export class KanbanView extends BasesView {
     );
 
     if (canPartial && changedColumns.length > 0) {
-      const selectedProperties = getSelectedProperties(this.data?.properties);
-      const groupByProperty = detectGroupByProperty(
-        rawGroups,
-        getPropertyCandidates(selectedProperties, this.allProperties),
-      );
-
       const context: RenderContext = {
         selectedProperties,
         groupByProperty,
@@ -582,6 +644,8 @@ export class KanbanView extends BasesView {
         groups,
         displaySettings,
         localCardOrderByColumn,
+        selectedProperties,
+        groupByProperty,
       );
 
       return;
@@ -597,12 +661,6 @@ export class KanbanView extends BasesView {
     this.applyBackgroundStyles();
 
     this.refreshEntryIndexesFromRendered(renderedGroups);
-
-    const selectedProperties = getSelectedProperties(this.data?.properties);
-    const groupByProperty = detectGroupByProperty(
-      rawGroups,
-      getPropertyCandidates(selectedProperties, this.allProperties),
-    );
 
     const boardEl = this.rootEl.createDiv({ cls: "bases-kanban-board" });
     this.setupBoardScrollListener(boardEl);
@@ -671,6 +729,8 @@ export class KanbanView extends BasesView {
       groups,
       displaySettings,
       localCardOrderByColumn,
+      selectedProperties,
+      groupByProperty,
     );
     this.lastColumnPathSnapshots = this.computeColumnSnapshots(renderedGroups);
 
