@@ -6,7 +6,6 @@ import {
   BasesView,
   Menu,
   Modal,
-  normalizePath,
   Notice,
   QueryController,
   TFile,
@@ -63,6 +62,11 @@ import {
   saveColumnScrollPosition,
   loadColumnScrollPosition,
 } from "./kanban-view/state-persistence";
+import {
+  type BackgroundManagerState,
+  applyBackground,
+  createBackgroundManagerState,
+} from "./kanban-view/background-manager";
 
 export class KanbanView extends BasesView {
   type = "kanban";
@@ -76,14 +80,7 @@ export class KanbanView extends BasesView {
   private entryByPath = new Map<string, BasesEntry>();
   private lastSelectedIndex: number | null = null;
   private scrollSaveTimeout: number | null = null;
-  private bgEl: HTMLElement | null = null;
-  private cachedImageUrl: string | null = null;
-  private cachedBackgroundInput: string | null = null;
-  private cachedResolvedImageUrl: string | null = null;
-  private cachedBackgroundFilter: string | null = null;
-  private cachedColumnTransparencyValue: number | null = null;
-  private cachedColumnBlurValue: number | null = null;
-  private backgroundImageLoadVersion = 0;
+  private backgroundManagerState: BackgroundManagerState;
   private cardElByPath = new Map<string, HTMLElement>();
   private columnElByKey = new Map<string, HTMLElement>();
   private viewSessionId: string;
@@ -104,6 +101,7 @@ export class KanbanView extends BasesView {
     super(controller);
     this.plugin = plugin;
     this.viewSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    this.backgroundManagerState = createBackgroundManagerState();
     this.rootEl = containerEl.createDiv({ cls: "bases-kanban-container" });
     this.dragController = new KanbanDragController(this.rootEl);
     this.mutationService = new KanbanMutationService(this.app as App);
@@ -845,176 +843,25 @@ export class KanbanView extends BasesView {
     });
   }
 
-  private resolveBackgroundInput(input: string): string | null {
-    const trimmed = input.trim();
-    if (trimmed.length === 0) {
-      return null;
-    }
-
-    // Check if it's a URL (http:// or https://)
-    if (/^https?:\/\//i.test(trimmed)) {
-      return trimmed;
-    }
-
-    // Treat as vault file path
-    const normalizedPath = normalizePath(trimmed);
-    const file = this.app.vault.getAbstractFileByPath(normalizedPath);
-    if (file instanceof TFile) {
-      return this.app.vault.getResourcePath(file);
-    }
-
-    return null;
-  }
-
-  private getConfigNumber(
-    key: string,
-    globalDefault: number,
-    min: number,
-    max: number,
-  ): number {
-    const rawValue = this.config?.get(key);
-    if (typeof rawValue === "number" && !Number.isNaN(rawValue)) {
-      return Math.max(min, Math.min(max, rawValue));
-    }
-    return globalDefault;
-  }
-
   private applyBackgroundStyles(): void {
-    const imageUrl = this.resolveBackgroundImageUrl(
-      this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
-    );
-
-    // Get configuration values
-    const brightness = this.getConfigNumber(
-      BACKGROUND_BRIGHTNESS_OPTION_KEY,
-      this.plugin.settings.backgroundBrightness,
-      0,
-      100,
-    );
-    const blur = this.getConfigNumber(
-      BACKGROUND_BLUR_OPTION_KEY,
-      this.plugin.settings.backgroundBlur,
-      0,
-      20,
-    );
-    const columnTransparency = this.getConfigNumber(
-      COLUMN_TRANSPARENCY_OPTION_KEY,
-      this.plugin.settings.columnTransparency,
-      0,
-      100,
-    );
-    const columnBlur = this.getConfigNumber(
-      COLUMN_BLUR_OPTION_KEY,
-      this.plugin.settings.columnBlur,
-      0,
-      20,
-    );
-
-    // Apply column transparency CSS variable
-    const columnTransparencyValue = columnTransparency / 100;
-    if (this.cachedColumnTransparencyValue !== columnTransparencyValue) {
-      this.rootEl.style.setProperty(
-        "--bases-kanban-column-transparency",
-        String(columnTransparencyValue),
-      );
-      this.cachedColumnTransparencyValue = columnTransparencyValue;
-    }
-
-    // Apply column blur CSS variable
-    if (this.cachedColumnBlurValue !== columnBlur) {
-      this.rootEl.style.setProperty(
-        "--bases-kanban-column-blur",
-        `${columnBlur}px`,
-      );
-      this.cachedColumnBlurValue = columnBlur;
-    }
-
-    // Manage background element
-    if (imageUrl !== null) {
-      const urlChanged = imageUrl !== this.cachedImageUrl;
-      let createdBackgroundElement = false;
-
-      if (this.bgEl === null || !this.rootEl.contains(this.bgEl)) {
-        this.bgEl = this.rootEl.createDiv({ cls: "bases-kanban-background" });
-        createdBackgroundElement = true;
-      }
-
-      if (this.bgEl === null) {
-        return;
-      }
-
-      if (createdBackgroundElement && this.cachedImageUrl !== null) {
-        this.bgEl.style.backgroundImage = `url("${this.cachedImageUrl}")`;
-      }
-
-      if (urlChanged) {
-        this.preloadBackgroundImage(imageUrl);
-      } else if (createdBackgroundElement) {
-        this.bgEl.style.backgroundImage = `url("${imageUrl}")`;
-      }
-
-      const nextFilter = `blur(${blur}px) brightness(${brightness}%)`;
-      if (
-        createdBackgroundElement ||
-        this.cachedBackgroundFilter !== nextFilter
-      ) {
-        this.bgEl.style.filter = nextFilter;
-        this.cachedBackgroundFilter = nextFilter;
-      }
-      return;
-    }
-
-    this.backgroundImageLoadVersion += 1;
-    if (this.bgEl !== null) {
-      this.bgEl.remove();
-      this.bgEl = null;
-    }
-    this.cachedImageUrl = null;
-    this.cachedBackgroundFilter = null;
-    this.cachedColumnBlurValue = null;
-  }
-
-  private resolveBackgroundImageUrl(rawInput: unknown): string | null {
-    if (typeof rawInput !== "string") {
-      this.cachedBackgroundInput = null;
-      this.cachedResolvedImageUrl = null;
-      return null;
-    }
-
-    if (rawInput === this.cachedBackgroundInput) {
-      return this.cachedResolvedImageUrl;
-    }
-
-    const resolvedImageUrl = this.resolveBackgroundInput(rawInput);
-    this.cachedBackgroundInput = rawInput;
-    this.cachedResolvedImageUrl = resolvedImageUrl;
-    return resolvedImageUrl;
-  }
-
-  private preloadBackgroundImage(imageUrl: string): void {
-    const currentVersion = this.backgroundImageLoadVersion + 1;
-    this.backgroundImageLoadVersion = currentVersion;
-    const image = new Image();
-    image.onload = () => {
-      if (currentVersion !== this.backgroundImageLoadVersion) {
-        return;
-      }
-
-      if (this.bgEl === null || !this.rootEl.contains(this.bgEl)) {
-        return;
-      }
-
-      this.bgEl.style.backgroundImage = `url("${imageUrl}")`;
-      this.cachedImageUrl = imageUrl;
+    const app = this.app as App;
+    const config = {
+      imageInput: this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
+      brightness:
+        (this.config?.get(BACKGROUND_BRIGHTNESS_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.backgroundBrightness,
+      blur:
+        (this.config?.get(BACKGROUND_BLUR_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.backgroundBlur,
+      columnTransparency:
+        (this.config?.get(COLUMN_TRANSPARENCY_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.columnTransparency,
+      columnBlur:
+        (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
+        this.plugin.settings.columnBlur,
     };
-    image.onerror = () => {
-      if (currentVersion !== this.backgroundImageLoadVersion) {
-        return;
-      }
 
-      console.error(`Failed to load background image: ${imageUrl}`);
-    };
-    image.src = imageUrl;
+    applyBackground(app, this.rootEl, this.backgroundManagerState, config);
   }
 
   private setupCardDragBehavior(cardEl: HTMLElement): void {
