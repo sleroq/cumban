@@ -101,6 +101,8 @@ src/
 - `onDataUpdated()` triggers renders when data changes
 - Implement partial rendering for performance on card moves
 - Use session storage for scroll position persistence
+- Partial render currently applies only when column structure is unchanged and <=5 columns changed; otherwise it falls back to full render.
+- Column scroll restoration is session-scoped (`kanban-col-scroll-${viewSessionId}-${columnKey}`), so column scroll positions are restored within a view session, not across app restarts.
 
 ### Drag and Drop
 - Use `KanbanDragController` for drag state management
