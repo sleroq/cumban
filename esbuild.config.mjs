@@ -13,9 +13,9 @@ const prod = process.argv[2] === "production";
 // These are replaced at build time and dead-code-eliminated in production
 const DEBUG_ENABLED = true;
 const DEBUG_RENDERS = true; // Set to false to disable render logging in dev
-const DEBUG_DRAG = true; // Set to false to disable drag logging in dev
+const DEBUG_DRAG = false; // Set to false to disable drag logging in dev
 const DEBUG_SCROLL = false; // Set to true to enable scroll logging in dev
-const DEBUG_CACHE = true; // Set to false to disable cache logging in dev
+const DEBUG_CACHE = false; // Set to false to disable cache logging in dev
 
 const context = await esbuild.context({
 	banner: {
