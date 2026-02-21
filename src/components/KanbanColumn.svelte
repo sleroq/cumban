@@ -29,7 +29,6 @@
     onCardDragEnd: () => void;
     onSetCardDropTarget: (targetPath: string | null, targetColumnKey: string | null, placement: "before" | "after" | null) => void;
     onCardDrop: (
-      evt: DragEvent,
       filePath: string | null,
       groupKey: unknown,
       placement: "before" | "after",
@@ -68,7 +67,8 @@
   }: Props = $props();
 
   // Get settings from context
-  const { settings, selectedPathsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+  const { settingsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+  const settings = $derived($settingsStore);
 
   let columnEl: HTMLElement | null = $state(null);
   let cardsEl: HTMLElement | null = $state(null);
@@ -299,7 +299,7 @@
       // Empty space drop - clear any stale card target and use column's group key
       onSetCardDropTarget(null, null, null);
       const placement = cardDragState.getPlacement() ?? "after";
-      onCardDrop(evt, null, groupKey, placement);
+      onCardDrop(null, groupKey, placement);
     }}
     onscroll={() => {
       if (cardsEl === null) return;
@@ -322,7 +322,6 @@
         {cardIndex}
         {groupByProperty}
         {selectedProperties}
-        selected={$selectedPathsStore.has(filePath)}
         {cardDragState}
         onSelect={onCardSelect}
         onDragStart={onCardDragStart}

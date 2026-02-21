@@ -140,6 +140,8 @@ src/
 - Use `$derived()` for computed values that depend on reactive data
 - Use `$state()` for local mutable state
 - Access stores with `$store` prefix (not `store()`)
+- Avoid store/value mixups in handlers: always use `$store` when you need the current boolean/value
+- For context values that must stay live across prop updates, prefer getter-backed context objects or context stores (do not destructure snapshot values that should remain reactive)
 
 ```svelte
 <script lang="ts">

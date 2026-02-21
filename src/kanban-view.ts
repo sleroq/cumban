@@ -11,7 +11,6 @@ import {
   TFile,
 } from "obsidian";
 import { mount, unmount } from "svelte";
-import { writable, type Writable, get } from "svelte/store";
 
 import type BasesKanbanPlugin from "./main";
 import {
@@ -80,6 +79,10 @@ import {
   hasSelection,
 } from "./kanban-view/selection-state";
 import KanbanRoot from "./components/KanbanRoot.svelte";
+import {
+  createKanbanViewModel,
+  type KanbanViewModel,
+} from "./kanban-view/view-model";
 
 export class KanbanView extends BasesView {
   type = "kanban";
@@ -95,25 +98,10 @@ export class KanbanView extends BasesView {
   private columnOrderCache: ColumnOrderCache = { order: null, raw: "" };
   private pinnedColumnsCache: PinnedColumnsCache = { columns: null, raw: "" };
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
-  private readonly selectedPathsStore: Writable<Set<string>>;
-  // Use stores for all reactive data that needs external updates
-  private readonly groupsStore: Writable<RenderedGroup[]> = writable([]);
-  private readonly groupByPropertyStore: Writable<BasesPropertyId | null> =
-    writable(null);
-  private readonly selectedPropertiesStore: Writable<BasesPropertyId[]> =
-    writable([]);
-  private readonly columnScrollByKeyStore: Writable<Record<string, number>> =
-    writable({});
-  private readonly pinnedColumnsStore: Writable<Set<string>> = writable(
-    new Set(),
-  );
+  private readonly viewModel: KanbanViewModel;
   // Cache of current rendered groups for data-driven operations
   // Avoids DOM queries for card order operations
   private currentRenderedGroups: RenderedGroup[] = [];
-
-  // Drag state (replaces drag-controller)
-  private draggingCardSourcePath: string | null = null;
-  private draggingColumnSourceKey: string | null = null;
 
   // PERFORMANCE NOTES:
   // Large Board Mode (Future Enhancement):
@@ -150,7 +138,8 @@ export class KanbanView extends BasesView {
     this.plugin = plugin;
     this.viewSessionId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     this.selectionState = createSelectionState();
-    this.selectedPathsStore = writable(this.selectionState.selectedPaths);
+    this.viewModel = createKanbanViewModel();
+    this.viewModel.setSelectedPaths(this.selectionState.selectedPaths);
     this.rootEl = containerEl.createDiv({ cls: "bases-kanban-container" });
     this.mutationService = new KanbanMutationService(this.app as App);
   }
@@ -256,11 +245,13 @@ export class KanbanView extends BasesView {
     }
 
     // Set initial store values
-    this.groupsStore.set(renderedGroups);
-    this.groupByPropertyStore.set(groupByProperty);
-    this.selectedPropertiesStore.set(selectedProperties);
-    this.columnScrollByKeyStore.set(columnScrollByKey);
-    this.pinnedColumnsStore.set(new Set(this.getPinnedColumnsFromConfig()));
+    this.viewModel.setBoardData({
+      groups: renderedGroups,
+      groupByProperty,
+      selectedProperties,
+    });
+    this.viewModel.setColumnScrollByKey(columnScrollByKey);
+    this.viewModel.setPinnedColumns(new Set(this.getPinnedColumnsFromConfig()));
 
     // Mount Svelte app once
     this.svelteApp = mount(KanbanRoot, {
@@ -269,7 +260,7 @@ export class KanbanView extends BasesView {
         app: this.app as App,
         rootEl: this.rootEl,
         // Static props that don't change
-        selectedPathsStore: this.selectedPathsStore,
+        selectedPathsStore: this.viewModel.selectedPathsStore,
         initialBoardScrollLeft: initialBoardScroll.left,
         initialBoardScrollTop: initialBoardScroll.top,
         settings: this.plugin.settings,
@@ -290,11 +281,11 @@ export class KanbanView extends BasesView {
           (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
           this.plugin.settings.columnBlur,
         // Reactive stores
-        groupsStore: this.groupsStore,
-        groupByPropertyStore: this.groupByPropertyStore,
-        selectedPropertiesStore: this.selectedPropertiesStore,
-        columnScrollByKeyStore: this.columnScrollByKeyStore,
-        pinnedColumnsStore: this.pinnedColumnsStore,
+        groupsStore: this.viewModel.groupsStore,
+        groupByPropertyStore: this.viewModel.groupByPropertyStore,
+        selectedPropertiesStore: this.viewModel.selectedPropertiesStore,
+        columnScrollByKeyStore: this.viewModel.columnScrollByKeyStore,
+        pinnedColumnsStore: this.viewModel.pinnedColumnsStore,
         // Callbacks
         onCreateCard: (
           grpByProperty: BasesPropertyId | null,
@@ -303,17 +294,16 @@ export class KanbanView extends BasesView {
         onCardSelect: (filePath: string, extendSelection: boolean) =>
           this.selectCard(filePath, extendSelection),
         onCardDragStart: (
-          evt: DragEvent,
           filePath: string,
           cardIndex: number,
-        ) => this.startCardDrag(evt, filePath, cardIndex),
+        ) => this.startCardDrag(filePath, cardIndex),
         onCardDragEnd: () => this.endCardDrag(),
         onCardDrop: (
-          evt: DragEvent,
+          sourcePath: string | null,
           filePath: string | null,
           grpKey: unknown,
           placement: "before" | "after",
-        ) => this.handleCardDrop(evt, filePath, grpKey, placement),
+        ) => this.handleCardDrop(sourcePath, filePath, grpKey, placement),
         onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) =>
           this.showCardContextMenu(evt, entry.file),
         onCardLinkClick: (evt: MouseEvent, target: string) =>
@@ -324,11 +314,14 @@ export class KanbanView extends BasesView {
           this.debouncedSaveBoardScrollPosition(scrollLeft, scrollTop),
         onBoardKeyDown: (evt: KeyboardEvent) => this.handleKeyDown(evt),
         onBoardClick: () => this.clearSelection(),
-        onStartColumnDrag: (evt: DragEvent, columnKey: string) =>
-          this.startColumnDrag(evt, columnKey),
+        onStartColumnDrag: (columnKey: string) =>
+          this.startColumnDrag(columnKey),
         onEndColumnDrag: () => this.endColumnDrag(),
-        onColumnDrop: (targetKey: string, placement: "before" | "after") =>
-          this.handleColumnDrop(targetKey, placement),
+        onColumnDrop: (
+          sourceKey: string | null,
+          targetKey: string,
+          placement: "before" | "after",
+        ) => this.handleColumnDrop(sourceKey, targetKey, placement),
         onTogglePin: (columnKey: string) => this.toggleColumnPin(columnKey),
       },
     });
@@ -341,7 +334,7 @@ export class KanbanView extends BasesView {
   ): void {
     // Only load scroll positions for new columns (not already in store)
     // This avoids re-setting scroll positions for existing columns on every update
-    const currentScrollByKey = get(this.columnScrollByKeyStore);
+    const currentScrollByKey = this.viewModel.getColumnScrollByKey();
     const columnScrollByKey: Record<string, number> = {};
     let hasNewColumns = false;
 
@@ -361,13 +354,15 @@ export class KanbanView extends BasesView {
     }
 
     // Update stores to trigger Svelte reactivity
-    this.groupsStore.set(renderedGroups);
-    this.groupByPropertyStore.set(groupByProperty);
-    this.selectedPropertiesStore.set(selectedProperties);
+    this.viewModel.setBoardData({
+      groups: renderedGroups,
+      groupByProperty,
+      selectedProperties,
+    });
 
     // Only update scroll store if there are new columns
     if (hasNewColumns) {
-      this.columnScrollByKeyStore.set(columnScrollByKey);
+      this.viewModel.setColumnScrollByKey(columnScrollByKey);
     }
 
     logRenderEvent("Stores updated", {
@@ -733,12 +728,11 @@ export class KanbanView extends BasesView {
 
   private updateSvelteProps(): void {
     // Use a fresh Set reference so store subscribers update predictably.
-    this.selectedPathsStore.set(new Set(this.selectionState.selectedPaths));
+    this.viewModel.setSelectedPaths(this.selectionState.selectedPaths);
   }
 
   // Card drag handlers (replaces drag-controller)
   private startCardDrag(
-    evt: DragEvent,
     filePath: string,
     cardIndex: number,
   ): void {
@@ -762,26 +756,22 @@ export class KanbanView extends BasesView {
       this.updateSvelteProps();
     }
 
-    this.draggingCardSourcePath = filePath;
+    this.viewModel.startCardDrag(filePath);
 
-    if (evt.dataTransfer !== null) {
-      evt.dataTransfer.effectAllowed = "move";
-      evt.dataTransfer.setData("text/plain", filePath);
-    }
   }
 
   private endCardDrag(): void {
     logDragEvent("Card drag ended");
-    this.draggingCardSourcePath = null;
+    this.viewModel.endCardDrag();
   }
 
   private async handleCardDrop(
-    _evt: DragEvent,
+    sourcePath: string | null,
     targetPath: string | null,
     groupKey: unknown,
     placement: "before" | "after",
   ): Promise<void> {
-    if (this.draggingCardSourcePath === null) {
+    if (sourcePath === null) {
       logDragEvent("Drop aborted - no dragging source");
       return;
     }
@@ -800,30 +790,31 @@ export class KanbanView extends BasesView {
       return;
     }
 
-    await this.handleDrop(groupByProperty, groupKey, targetPath, placement);
+    await this.handleDrop(
+      sourcePath,
+      groupByProperty,
+      groupKey,
+      targetPath,
+      placement,
+    );
   }
 
   // Column drag handlers (replaces drag-controller)
-  private startColumnDrag(evt: DragEvent, columnKey: string): void {
+  private startColumnDrag(columnKey: string): void {
     logDragEvent("Column drag started", { columnKey });
-    this.draggingColumnSourceKey = columnKey;
-
-    if (evt.dataTransfer !== null) {
-      evt.dataTransfer.effectAllowed = "move";
-      evt.dataTransfer.setData("text/plain", columnKey);
-    }
+    this.viewModel.startColumnDrag(columnKey);
   }
 
   private endColumnDrag(): void {
     logDragEvent("Column drag ended");
-    this.draggingColumnSourceKey = null;
+    this.viewModel.endColumnDrag();
   }
 
   private handleColumnDrop(
+    sourceColumnKey: string | null,
     targetColumnKey: string,
     placement: "before" | "after",
   ): void {
-    const sourceColumnKey = this.draggingColumnSourceKey;
     logDragEvent("Column dropped", {
       sourceColumnKey: sourceColumnKey ?? "null",
       targetColumnKey,
@@ -904,7 +895,7 @@ export class KanbanView extends BasesView {
       serializePinnedColumns(pinnedColumns),
     );
     // Update store to trigger re-render
-    this.pinnedColumnsStore.set(new Set(pinnedColumns));
+    this.viewModel.setPinnedColumns(new Set(pinnedColumns));
   }
 
   private toggleColumnPin(columnKey: string): void {
@@ -968,19 +959,14 @@ export class KanbanView extends BasesView {
   }
 
   private async handleDrop(
+    sourcePath: string,
     groupByProperty: BasesPropertyId,
     groupKey: unknown,
     targetPath: string | null,
     placement: "before" | "after",
   ): Promise<void> {
-    const draggingSourcePath = this.draggingCardSourcePath;
-    if (draggingSourcePath === null) {
-      logDragEvent("Drop aborted - no dragging source");
-      return;
-    }
-
-    const draggedPaths = this.getDraggedPaths(draggingSourcePath);
-    const sourceEntry = this.entryByPath.get(draggingSourcePath);
+    const draggedPaths = this.getDraggedPaths(sourcePath);
+    const sourceEntry = this.entryByPath.get(sourcePath);
     const sourceColumnKey =
       sourceEntry === undefined
         ? null
@@ -1015,7 +1001,7 @@ export class KanbanView extends BasesView {
     });
 
     // Reset drag state
-    this.draggingCardSourcePath = null;
+    this.viewModel.endCardDrag();
 
     // Always render after drop to show updated card order
     // Same-column reordering updates local card order config,

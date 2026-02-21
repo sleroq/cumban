@@ -17,7 +17,6 @@
         cardIndex: number;
         groupByProperty: BasesPropertyId | null;
         selectedProperties: BasesPropertyId[];
-        selected: boolean;
         cardDragState: ReturnType<typeof createCardDragState>;
         onSelect: (filePath: string, extendSelection: boolean) => void;
         onDragStart: (
@@ -32,7 +31,6 @@
             placement: "before" | "after" | null,
         ) => void;
         onDrop: (
-            evt: DragEvent,
             filePath: string | null,
             groupKey: unknown,
             placement: "before" | "after",
@@ -59,8 +57,9 @@
     }: Props = $props();
 
     // Get settings and selection store from context
-    const { settings, selectedPathsStore } =
+    const { settingsStore, selectedPathsStore } =
         getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+    const settings = $derived($settingsStore);
 
     let cardEl: HTMLElement | null = $state(null);
     let isDraggable: boolean = $state(false);
@@ -125,7 +124,7 @@
     }
 
     function handleMouseUp(): void {
-        if (!isDraggingSource) {
+        if (!$isDraggingSource) {
             isDraggable = false;
         }
     }
@@ -188,7 +187,7 @@
             rafId = null;
         }
         const placement = cardDragState.getDropPlacement(filePath) ?? "after";
-        onDrop(evt, filePath, groupKey, placement);
+        onDrop(filePath, groupKey, placement);
     }
 
     function handleContextMenu(evt: MouseEvent): void {

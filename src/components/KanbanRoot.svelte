@@ -1,12 +1,13 @@
 <script lang="ts">
   import { setContext } from "svelte";
+  import { writable } from "svelte/store";
   import type { BasesEntry, BasesPropertyId, BasesEntryGroup, App } from "obsidian";
   import type { Readable } from "svelte/store";
   import KanbanBoard from "./KanbanBoard.svelte";
   import KanbanBackground from "./KanbanBackground.svelte";
   import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
   import type { KanbanContext } from "../kanban-view/context";
-  import type { BasesKanbanSettings } from "../settings";
+  import { DEFAULT_SETTINGS, type BasesKanbanSettings } from "../settings";
 
   interface Props {
     app: App;
@@ -28,10 +29,10 @@
     pinnedColumnsStore: Readable<Set<string>>;
     onCreateCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => void;
     onCardSelect: (filePath: string, extendSelection: boolean) => void;
-    onCardDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => void;
+    onCardDragStart: (filePath: string, cardIndex: number) => void;
     onCardDragEnd: () => void;
     onCardDrop: (
-      evt: DragEvent,
+      sourcePath: string | null,
       filePath: string | null,
       groupKey: unknown,
       placement: "before" | "after",
@@ -42,9 +43,9 @@
     onBoardScroll: (scrollLeft: number, scrollTop: number) => void;
     onBoardKeyDown: (evt: KeyboardEvent) => void;
     onBoardClick: () => void;
-    onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
+    onStartColumnDrag: (columnKey: string) => void;
     onEndColumnDrag: () => void;
-    onColumnDrop: (targetKey: string, placement: "before" | "after") => void;
+    onColumnDrop: (sourceKey: string | null, targetKey: string, placement: "before" | "after") => void;
     onTogglePin: (columnKey: string) => void;
   }
 
@@ -82,15 +83,24 @@
     onTogglePin,
   }: Props = $props();
 
-  // Provide context to entire component tree
-  // Use $state with getters so child components always access current values
-  // This resolves "state_referenced_locally" warnings and ensures settings
-  // changes propagate to child components without view remount.
+  const settingsStore = writable(DEFAULT_SETTINGS);
+  $effect(() => {
+    settingsStore.set(settings);
+  });
+
   const contextValue: KanbanContext = $state({
-    get app() { return app; },
-    get settings() { return settings; },
-    get selectedPathsStore() { return selectedPathsStore; },
-    get pinnedColumnsStore() { return pinnedColumnsStore; },
+    get app() {
+      return app;
+    },
+    get settingsStore() {
+      return settingsStore;
+    },
+    get selectedPathsStore() {
+      return selectedPathsStore;
+    },
+    get pinnedColumnsStore() {
+      return pinnedColumnsStore;
+    },
   }) as KanbanContext;
   setContext(KANBAN_CONTEXT_KEY, contextValue);
 

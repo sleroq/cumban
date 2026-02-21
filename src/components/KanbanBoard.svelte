@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { BasesEntry, BasesPropertyId, BasesEntryGroup } from "obsidian";
   import { onMount } from "svelte";
-  import type { Readable } from "svelte/store";
   import KanbanColumn from "./KanbanColumn.svelte";
   import { createColumnDragState, createCardDragState } from "../kanban-view/drag-state";
 
@@ -15,10 +14,10 @@
     pinnedColumns: Set<string>;
     onCreateCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => void;
     onCardSelect: (filePath: string, extendSelection: boolean) => void;
-    onCardDragStart: (evt: DragEvent, filePath: string, cardIndex: number) => void;
+    onCardDragStart: (filePath: string, cardIndex: number) => void;
     onCardDragEnd: () => void;
     onCardDrop: (
-      evt: DragEvent,
+      sourcePath: string | null,
       filePath: string | null,
       groupKey: unknown,
       placement: "before" | "after",
@@ -29,9 +28,9 @@
     onBoardScroll: (scrollLeft: number, scrollTop: number) => void;
     onBoardKeyDown: (evt: KeyboardEvent) => void;
     onBoardClick: () => void;
-    onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
+    onStartColumnDrag: (columnKey: string) => void;
     onEndColumnDrag: () => void;
-    onColumnDrop: (targetKey: string, placement: "before" | "after") => void;
+    onColumnDrop: (sourceKey: string | null, targetKey: string, placement: "before" | "after") => void;
     onTogglePin: (columnKey: string) => void;
   }
 
@@ -65,6 +64,8 @@
   // Create drag state instances at board level
   const columnDragState = createColumnDragState();
   const cardDragState = createCardDragState();
+  const columnSourceKeyStore = $derived(columnDragState.sourceKey);
+  const cardSourcePathStore = $derived(cardDragState.sourcePath);
 
   function getColumnKey(groupKey: unknown): string {
     if (groupKey === undefined || groupKey === null) {
@@ -88,7 +89,7 @@
   // Wrapper functions that include drag state
   function handleStartColumnDrag(evt: DragEvent, columnKey: string): void {
     columnDragState.startDrag(columnKey, evt.dataTransfer);
-    onStartColumnDrag(evt, columnKey);
+    onStartColumnDrag(columnKey);
   }
 
   function handleEndColumnDrag(): void {
@@ -101,13 +102,14 @@
   }
 
   function handleColumnDrop(targetKey: string, placement: "before" | "after"): void {
+    const sourceColumnKey = $columnSourceKeyStore;
     columnDragState.clearDropTarget();
-    onColumnDrop(targetKey, placement);
+    onColumnDrop(sourceColumnKey, targetKey, placement);
   }
 
   function handleStartCardDrag(evt: DragEvent, filePath: string, cardIndex: number): void {
     cardDragState.startDrag(filePath, evt.dataTransfer);
-    onCardDragStart(evt, filePath, cardIndex);
+    onCardDragStart(filePath, cardIndex);
   }
 
   function handleEndCardDrag(): void {
@@ -117,6 +119,14 @@
 
   function handleSetCardDropTarget(targetPath: string | null, targetColumnKey: string | null, placement: "before" | "after" | null): void {
     cardDragState.setDropTarget(targetPath, targetColumnKey, placement);
+  }
+
+  function handleCardDrop(
+    filePath: string | null,
+    groupKey: unknown,
+    placement: "before" | "after",
+  ): void {
+    onCardDrop($cardSourcePathStore, filePath, groupKey, placement);
   }
 
   const startCardIndexes = $derived.by(() => {
@@ -179,7 +189,7 @@
       onCardDragStart={handleStartCardDrag}
       onCardDragEnd={handleEndCardDrag}
       onSetCardDropTarget={handleSetCardDropTarget}
-      onCardDrop={onCardDrop}
+      onCardDrop={handleCardDrop}
       onCardContextMenu={onCardContextMenu}
       onCardLinkClick={onCardLinkClick}
       onCardsScroll={(scrollTop) => onCardsScroll(columnKey, scrollTop)}
