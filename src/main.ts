@@ -8,6 +8,7 @@ import {
 
 export default class BasesKanbanPlugin extends Plugin {
   settings!: BasesKanbanSettings;
+  private readonly kanbanViews = new Set<KanbanView>();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -31,6 +32,15 @@ export default class BasesKanbanPlugin extends Plugin {
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     this.updateCssVariables();
+    this.notifyKanbanViewsSettingsChanged();
+  }
+
+  registerKanbanView(view: KanbanView): void {
+    this.kanbanViews.add(view);
+  }
+
+  unregisterKanbanView(view: KanbanView): void {
+    this.kanbanViews.delete(view);
   }
 
   private updateCssVariables(): void {
@@ -47,5 +57,11 @@ export default class BasesKanbanPlugin extends Plugin {
       "--bases-kanban-tag-text-color",
       this.settings.tagTextColor,
     );
+  }
+
+  private notifyKanbanViewsSettingsChanged(): void {
+    for (const view of this.kanbanViews) {
+      view.onPluginSettingsChanged();
+    }
   }
 }

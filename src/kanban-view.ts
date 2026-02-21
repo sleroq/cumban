@@ -142,6 +142,11 @@ export class KanbanView extends BasesView {
     this.viewModel.setSelectedPaths(this.selectionState.selectedPaths);
     this.rootEl = containerEl.createDiv({ cls: "bases-kanban-container" });
     this.mutationService = new KanbanMutationService(this.app as App);
+    this.plugin.registerKanbanView(this);
+  }
+
+  onPluginSettingsChanged(): void {
+    this.applyBackgroundStyles();
   }
 
   onDataUpdated(): void {
@@ -413,6 +418,13 @@ export class KanbanView extends BasesView {
       "--bases-kanban-column-blur",
       `${styles.columnBlurValue}px`,
     );
+
+    const backgroundEl = this.rootEl.querySelector<HTMLDivElement>(
+      ".bases-kanban-background",
+    );
+    if (backgroundEl !== null) {
+      backgroundEl.style.filter = styles.backgroundFilter;
+    }
   }
 
   private handleCardLinkClick(evt: MouseEvent, target: string): void {
@@ -1066,6 +1078,7 @@ export class KanbanView extends BasesView {
     }
     this.unmountSvelteApp();
     this.rootEl.empty();
+    this.plugin.unregisterKanbanView(this);
   }
 
   static getViewOptions() {
