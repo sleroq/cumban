@@ -183,6 +183,7 @@ src/
 - Prefer selector-store helpers from drag state (`cardDropTargetStore`, `columnSourceStore`, etc.) instead of creating ad-hoc `derived(...)` selectors in components
 - Update local order state before mutating files (optimistic UI)
 - Use data-driven operations instead of DOM queries for card order
+- In `reorderPathsForDrop`, when `targetPath` is `null`, treat `placement: "before"` as insertion at index `0` (top of column) and `"after"` as append
 
 ### Debug Logging
 

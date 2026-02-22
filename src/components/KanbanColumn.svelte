@@ -136,6 +136,41 @@
             },
         };
     }
+
+    function getFirstCardPath(): string | null {
+        const firstEntry = entries[0];
+        if (firstEntry === undefined) {
+            return null;
+        }
+        return firstEntry.file.path;
+    }
+
+    function handleHeaderCardDragOver(evt: DragEvent): void {
+        if (groupByProperty === null || !$cardIsDragging) {
+            return;
+        }
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        const firstCardPath = getFirstCardPath();
+        if (firstCardPath === null) {
+            onSetCardDropTarget(null, null, null);
+            return;
+        }
+        onSetCardDropTarget(firstCardPath, columnKey, "before");
+    }
+
+    function handleHeaderCardDrop(evt: DragEvent): void {
+        if (groupByProperty === null || !$cardIsDragging) {
+            return;
+        }
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        const firstCardPath = getFirstCardPath();
+        onSetCardDropTarget(null, null, null);
+        onCardDrop(firstCardPath, groupKey, "before");
+    }
 </script>
 
 <div
@@ -197,6 +232,8 @@
         draggable="true"
         role="button"
         tabindex="0"
+        ondragover={handleHeaderCardDragOver}
+        ondrop={handleHeaderCardDrop}
         ondragstart={(evt) => {
             // Don't initiate drag if clicking the add button
             const target = evt.target as HTMLElement;
@@ -322,9 +359,9 @@
                 // Drop was on a card element - let the card's drop handler handle this
                 return;
             }
+            const placement = dragState.getCardPlacement() ?? "after";
             // Empty space drop - clear any stale card target and use column's group key
             onSetCardDropTarget(null, null, null);
-            const placement = dragState.getCardPlacement() ?? "after";
             onCardDrop(null, groupKey, placement);
         }}
         onscroll={() => {

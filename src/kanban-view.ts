@@ -688,6 +688,8 @@ export class KanbanView extends BasesView {
       if (targetIndex !== -1) {
         insertionIndex = placement === "before" ? targetIndex : targetIndex + 1;
       }
+    } else if (placement === "before") {
+      insertionIndex = 0;
     }
 
     nextPaths.splice(insertionIndex, 0, ...movedPaths);
