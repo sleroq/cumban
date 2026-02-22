@@ -297,6 +297,18 @@
 	word-break: break-word;
 }
 
+.bases-kanban-checkbox-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+}
+
+.bases-kanban-property-name {
+	color: var(--text-muted);
+	line-height: var(--line-height-tight);
+}
+
 .bases-kanban-property-tag {
 	display: inline-block;
 	padding: var(--tag-padding-y, 1px) var(--tag-padding-x, 6px);

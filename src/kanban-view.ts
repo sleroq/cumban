@@ -299,6 +299,10 @@ export class KanbanView extends BasesView {
           this.getPropertyEditorMode(propertyId),
         getPropertyType: (propertyId: BasesPropertyId) =>
           this.getPropertyType(propertyId),
+        getPropertyCheckboxState: (
+          filePath: string,
+          propertyId: BasesPropertyId,
+        ) => this.getPropertyCheckboxState(filePath, propertyId),
         getPropertySuggestions: (propertyId: BasesPropertyId) =>
           this.getPropertySuggestions(propertyId),
         updatePropertyValues: (
@@ -307,6 +311,11 @@ export class KanbanView extends BasesView {
           mode: PropertyEditorMode,
           values: string[],
         ) => this.updateCardPropertyValues(filePath, propertyId, mode, values),
+        updatePropertyCheckbox: (
+          filePath: string,
+          propertyId: BasesPropertyId,
+          checked: boolean,
+        ) => this.updateCardPropertyCheckbox(filePath, propertyId, checked),
       },
       column: {
         createCard: (grpByProperty: BasesPropertyId | null, grpKey: unknown) =>
@@ -638,6 +647,80 @@ export class KanbanView extends BasesView {
     return Array.from(suggestions).sort((a, b) => a.localeCompare(b));
   }
 
+  private getPropertyCheckboxState(
+    filePath: string,
+    propertyId: BasesPropertyId,
+  ): boolean {
+    const entry = this.entryByPath.get(filePath);
+    if (entry === undefined) {
+      return false;
+    }
+
+    const propertyKey = getWritablePropertyKey(propertyId);
+    if (propertyKey === null) {
+      return false;
+    }
+
+    const cache = this.app.metadataCache.getFileCache(entry.file);
+    const frontmatter = cache?.frontmatter;
+    if (frontmatter !== undefined) {
+      const rawValue = Object.prototype.hasOwnProperty.call(frontmatter, propertyId)
+        ? frontmatter[propertyId]
+        : frontmatter[propertyKey];
+      if (rawValue !== undefined) {
+        return this.isCheckboxValueChecked(rawValue);
+      }
+    }
+
+    return this.isCheckboxValueChecked(entry.getValue(propertyId));
+  }
+
+  private isCheckboxValueChecked(value: unknown): boolean {
+    if (Array.isArray(value)) {
+      return value.some((item) => this.isCheckboxValueChecked(item));
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return value !== 0;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      return (
+        normalized === "true" ||
+        normalized === "1" ||
+        normalized === "yes" ||
+        normalized === "on" ||
+        normalized === "checked" ||
+        normalized === "x"
+      );
+    }
+
+    if (typeof value === "object" && value !== null) {
+      if ("data" in value) {
+        return this.isCheckboxValueChecked(value.data);
+      }
+      if ("checked" in value) {
+        return this.isCheckboxValueChecked(value.checked);
+      }
+      if ("value" in value) {
+        return this.isCheckboxValueChecked(value.value);
+      }
+      if ("icon" in value && typeof value.icon === "string") {
+        const icon = value.icon.toLowerCase();
+        if (icon.includes("check-square") || icon.includes("square-check")) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   private getFrontmatterPropertyValue(
     frontmatter: Record<string, unknown>,
     propertyId: BasesPropertyId,
@@ -708,6 +791,29 @@ export class KanbanView extends BasesView {
       propertyKey,
       mode,
       values,
+    });
+  }
+
+  private async updateCardPropertyCheckbox(
+    filePath: string,
+    propertyId: BasesPropertyId,
+    checked: boolean,
+  ): Promise<void> {
+    const propertyKey = getWritablePropertyKey(propertyId);
+    if (propertyKey === null) {
+      return;
+    }
+
+    const entry = this.entryByPath.get(filePath);
+    if (entry === undefined) {
+      return;
+    }
+
+    await this.mutationService.updateCardPropertyCheckbox({
+      file: entry.file,
+      propertyId,
+      propertyKey,
+      checked,
     });
   }
 

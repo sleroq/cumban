@@ -4,10 +4,7 @@
     import type { PropertyEditorMode } from "../kanban-view/actions";
     import type { PropertyType } from "../kanban-view/actions";
     import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-popover";
-    import {
-        getPropertyValues,
-        parseWikiLinks,
-    } from "../kanban-view/utils";
+    import { getPropertyValues, parseWikiLinks } from "../kanban-view/utils";
     import {
         KANBAN_BOARD_CONTEXT_KEY,
         type KanbanBoardContext,
@@ -175,10 +172,8 @@
                 normalizedTagValue,
             ) ?? "";
         const text =
-            prettyApi?.getPropertyTextColorValue(
-                "tags",
-                normalizedTagValue,
-            ) ?? "";
+            prettyApi?.getPropertyTextColorValue("tags", normalizedTagValue) ??
+            "";
 
         const cssVars: string[] = [];
         if (background !== "") {
@@ -195,9 +190,7 @@
             cssVars.push(`--tag-color-hover: ${text}`);
         } else if (fallbackToAccent) {
             cssVars.push("--tag-color: var(--text-on-accent)");
-            cssVars.push(
-                "--tag-color-hover: var(--text-on-accent)",
-            );
+            cssVars.push("--tag-color-hover: var(--text-on-accent)");
         }
 
         if (cssVars.length === 0) {
@@ -330,8 +323,7 @@
     function commitPendingInput(): void {
         if (editingMode === "single") {
             const pendingValue = normalizeInputValue(getCurrentEditInput());
-            editingValues =
-                pendingValue.length === 0 ? [] : [pendingValue];
+            editingValues = pendingValue.length === 0 ? [] : [pendingValue];
             markChanges();
             return;
         }
@@ -454,7 +446,7 @@
         evt: MouseEvent,
         propertyId: BasesPropertyId,
         mode: PropertyEditorMode | null,
-        values: string[],
+        values: string[] | null,
     ): void {
         const target = evt.target;
         if (
@@ -464,6 +456,9 @@
             return;
         }
         if (mode === null) {
+            return;
+        }
+        if (values === null) {
             return;
         }
         evt.preventDefault();
@@ -484,10 +479,7 @@
             return;
         }
 
-        if (
-            evt.key === "Backspace" &&
-            isEditInputCompletelyEmpty()
-        ) {
+        if (evt.key === "Backspace" && isEditInputCompletelyEmpty()) {
             removeValue(editingValues.length - 1);
             return;
         }
@@ -522,7 +514,10 @@
         }
     }
 
-    function handleRemoveValue(evt: MouseEvent | KeyboardEvent, index: number): void {
+    function handleRemoveValue(
+        evt: MouseEvent | KeyboardEvent,
+        index: number,
+    ): void {
         evt.preventDefault();
         evt.stopPropagation();
         removeValue(index);
@@ -532,7 +527,8 @@
         propertyId: BasesPropertyId,
         query: string,
     ): string[] {
-        const allSuggestions = callbacks.card.getPropertySuggestions(propertyId);
+        const allSuggestions =
+            callbacks.card.getPropertySuggestions(propertyId);
         const normalizedQuery = query.trim().toLowerCase();
         return allSuggestions.filter((value: string) => {
             const isAlreadySelected = editingValues.includes(value);
@@ -558,7 +554,10 @@
         if (editingPropertyId === null) {
             return;
         }
-        const suggestions = getFilteredSuggestions(editingPropertyId, editInput);
+        const suggestions = getFilteredSuggestions(
+            editingPropertyId,
+            editInput,
+        );
         if (suggestions.length === 0) {
             activeSuggest?.close();
         }
@@ -735,6 +734,40 @@
         return type === "date" || type === "datetime" || type === "time";
     }
 
+    function getPropertyDisplayName(propertyId: BasesPropertyId): string {
+        if (propertyId.startsWith("note.")) {
+            return propertyId.slice("note.".length);
+        }
+
+        const lastDotIndex = propertyId.lastIndexOf(".");
+        if (lastDotIndex !== -1 && lastDotIndex < propertyId.length - 1) {
+            return propertyId.slice(lastDotIndex + 1);
+        }
+
+        return propertyId;
+    }
+
+    function handleCheckboxClick(evt: MouseEvent): void {
+        evt.stopPropagation();
+    }
+
+    async function handleCheckboxChange(
+        evt: Event,
+        propertyId: BasesPropertyId,
+    ): Promise<void> {
+        evt.stopPropagation();
+        const target = evt.target;
+        if (!(target instanceof HTMLInputElement)) {
+            return;
+        }
+
+        await callbacks.card.updatePropertyCheckbox(
+            filePath,
+            propertyId,
+            target.checked,
+        );
+    }
+
     function getRelativeDate(dateValue: string): "past" | "future" | "today" {
         const date = new Date(dateValue);
         const today = new Date();
@@ -761,7 +794,10 @@
             return date.toLocaleString();
         }
         if (type === "time") {
-            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            return date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
         }
         return value;
     }
@@ -774,14 +810,18 @@
         return `${year}-${month}-${day}.md`;
     }
 
-    function handleDateIconClick(evt: MouseEvent | KeyboardEvent, dateValue: string): void {
+    function handleDateIconClick(
+        evt: MouseEvent | KeyboardEvent,
+        dateValue: string,
+    ): void {
         evt.preventDefault();
         evt.stopPropagation();
         const dailyNotePath = getDailyNotePath(dateValue);
         // Create a synthetic mouse event for the linkClick callback
-        const syntheticEvt = evt instanceof MouseEvent 
-            ? evt 
-            : new MouseEvent("click", { bubbles: true });
+        const syntheticEvt =
+            evt instanceof MouseEvent
+                ? evt
+                : new MouseEvent("click", { bubbles: true });
         callbacks.card.linkClick(syntheticEvt, dailyNotePath);
     }
 
@@ -834,27 +874,60 @@
     {#if propertiesToDisplay.length > 0}
         <div class="bases-kanban-card-properties">
             {#each propertiesToDisplay as propertyId (propertyId)}
-                {@const values = getPropertyValues(entry.getValue(propertyId))}
-                {#if values !== null}
-                    {@const mode = callbacks.card.getPropertyEditorMode(
-                        propertyId,
-                    )}
-                    {@const propertyType = callbacks.card.getPropertyType(
-                        propertyId,
-                    )}
+                {@const rawValue = entry.getValue(propertyId)}
+                {@const values = getPropertyValues(rawValue)}
+                {@const mode = callbacks.card.getPropertyEditorMode(propertyId)}
+                {@const propertyType =
+                    callbacks.card.getPropertyType(propertyId)}
+                {#if values !== null || propertyType === "checkbox"}
                     {@const isTagProperty = propertyId.endsWith(
                         settings.tagPropertySuffix,
                     )}
-                    {@const isEditingProperty = editingPropertyId === propertyId}
+                    {@const isEditingProperty =
+                        editingPropertyId === propertyId}
+                    {@const isCheckboxProperty = propertyType === "checkbox"}
                     <!-- svelte-ignore a11y_click_events_have_key_events -->
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <div
                         class="bases-kanban-property-row"
-                        class:bases-kanban-property-row-editable={mode !== null}
+                        class:bases-kanban-property-row-editable={mode !==
+                            null && !isCheckboxProperty}
                         onclick={(evt: MouseEvent) =>
-                            handlePropertyRowClick(evt, propertyId, mode, values)}
+                            handlePropertyRowClick(
+                                evt,
+                                propertyId,
+                                mode,
+                                values,
+                            )}
                     >
-                        {#if isEditingProperty && mode !== null}
+                        {#if isCheckboxProperty}
+                            {@const checked = callbacks.card.getPropertyCheckboxState(
+                                filePath,
+                                propertyId,
+                            )}
+                            <div class="bases-kanban-checkbox-row">
+                                <span class="bases-kanban-property-name">
+                                    {getPropertyDisplayName(propertyId)}
+                                </span>
+                                <div
+                                    class="bases-kanban-property-value metadata-property-value"
+                                    data-property-type="checkbox"
+                                >
+                                    <input
+                                        class="metadata-input-checkbox"
+                                        type="checkbox"
+                                        data-indeterminate="false"
+                                        {checked}
+                                        onclick={handleCheckboxClick}
+                                        onchange={(evt: Event) =>
+                                            void handleCheckboxChange(
+                                                evt,
+                                                propertyId,
+                                            )}
+                                    />
+                                </div>
+                            </div>
+                        {:else if isEditingProperty && mode !== null}
                             <!-- svelte-ignore a11y_click_events_have_key_events -->
                             <!-- svelte-ignore a11y_no_static_element_interactions -->
                             <div
@@ -879,7 +952,9 @@
                                                 { fallbackToAccent: true },
                                             )}
                                         >
-                                            <div class="multi-select-pill-content">
+                                            <div
+                                                class="multi-select-pill-content"
+                                            >
                                                 <span>{value}</span>
                                             </div>
                                             <div
@@ -891,14 +966,36 @@
                                                         evt,
                                                         valueIndex,
                                                     )}
-                                                onkeydown={(evt: KeyboardEvent) => {
-                                                    if (evt.key === "Enter" || evt.key === " ") {
+                                                onkeydown={(
+                                                    evt: KeyboardEvent,
+                                                ) => {
+                                                    if (
+                                                        evt.key === "Enter" ||
+                                                        evt.key === " "
+                                                    ) {
                                                         evt.preventDefault();
-                                                        handleRemoveValue(evt, valueIndex);
+                                                        handleRemoveValue(
+                                                            evt,
+                                                            valueIndex,
+                                                        );
                                                     }
                                                 }}
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="24"
+                                                    height="24"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="svg-icon lucide-x"
+                                                    ><path d="M18 6 6 18"
+                                                    ></path><path d="m6 6 12 12"
+                                                    ></path></svg
+                                                >
                                             </div>
                                         </div>
                                     {/each}
@@ -913,10 +1010,9 @@
                                     data-placeholder="Add value"
                                     oninput={(evt: Event) => {
                                         const target = evt.target;
-                                        if (
-                                            target instanceof HTMLElement
-                                        ) {
-                                            editInput = target.textContent ?? "";
+                                        if (target instanceof HTMLElement) {
+                                            editInput =
+                                                target.textContent ?? "";
                                             closeSuggestWhenEmpty();
                                         }
                                     }}
@@ -927,7 +1023,7 @@
                                     onclick={handlePropertyEditorClick}
                                 ></div>
                             </div>
-                        {:else}
+                        {:else if values !== null}
                             {#each values as value, i (i)}
                                 {@const truncatedValue = truncatePropertyValue(
                                     value,
@@ -936,28 +1032,57 @@
                                 {@const links = parseWikiLinks(value)}
                                 {@const isDateProp = isDateType(propertyType)}
                                 {#if isDateProp}
-                                    {@const relativeDate = getRelativeDate(value)}
-                                    {@const formattedDate = formatDateValue(value, propertyType)}
+                                    {@const relativeDate =
+                                        getRelativeDate(value)}
+                                    {@const formattedDate = formatDateValue(
+                                        value,
+                                        propertyType,
+                                    )}
                                     <div
                                         class="bases-kanban-property-value metadata-property-value"
                                         data-property-type="date"
                                         data-relative-date={relativeDate}
                                     >
-                                        <span class="metadata-date-value">{formattedDate}</span>
+                                        <span class="metadata-date-value"
+                                            >{formattedDate}</span
+                                        >
                                         <div
                                             class="clickable-icon"
                                             role="button"
                                             tabindex="0"
                                             aria-label="Open daily note"
-                                            onclick={(evt: MouseEvent) => handleDateIconClick(evt, value)}
+                                            onclick={(evt: MouseEvent) =>
+                                                handleDateIconClick(evt, value)}
                                             onkeydown={(evt: KeyboardEvent) => {
-                                                if (evt.key === "Enter" || evt.key === " ") {
+                                                if (
+                                                    evt.key === "Enter" ||
+                                                    evt.key === " "
+                                                ) {
                                                     evt.preventDefault();
-                                                    handleDateIconClick(evt, value);
+                                                    handleDateIconClick(
+                                                        evt,
+                                                        value,
+                                                    );
                                                 }
                                             }}
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="24"
+                                                height="24"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                class="svg-icon lucide-link"
+                                                ><path
+                                                    d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                                                ></path><path
+                                                    d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                                                ></path></svg
+                                            >
                                         </div>
                                     </div>
                                 {:else if links.length === 0}
@@ -970,14 +1095,33 @@
                                             data-property-type="text"
                                         >
                                             <div class="metadata-link">
-                                            <div
-                                                class="metadata-link-inner external-link"
-                                                data-href={externalLinkHref}
-                                            >
-                                                {truncatedValue}
-                                            </div>
-                                            <div class="metadata-link-flair"
-                                            ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></div>
+                                                <div
+                                                    class="metadata-link-inner external-link"
+                                                    data-href={externalLinkHref}
+                                                >
+                                                    {truncatedValue}
+                                                </div>
+                                                <div
+                                                    class="metadata-link-flair"
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="24"
+                                                        height="24"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        class="svg-icon lucide-pencil"
+                                                        ><path
+                                                            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                                                        ></path><path
+                                                            d="m15 5 4 4"
+                                                        ></path></svg
+                                                    >
+                                                </div>
                                             </div>
                                         </div>
                                     {:else}
@@ -1029,7 +1173,8 @@
                                     {/each}
                                 {/if}
                                 {#if !isTagProperty && i < values.length - 1}
-                                    <span class="bases-kanban-property-separator"
+                                    <span
+                                        class="bases-kanban-property-separator"
                                         >{settings.propertyValueSeparator}</span
                                     >
                                 {/if}

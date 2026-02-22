@@ -34,6 +34,13 @@ type UpdateCardPropertyValuesArgs = {
   values: string[];
 };
 
+type UpdateCardPropertyCheckboxArgs = {
+  file: TFile;
+  propertyId: BasesPropertyId;
+  propertyKey: string;
+  checked: boolean;
+};
+
 export class KanbanMutationService {
   constructor(private readonly app: App) {}
 
@@ -125,6 +132,17 @@ export class KanbanMutationService {
       }
 
       frontmatter[key] = trimmedValues;
+    });
+  }
+
+  async updateCardPropertyCheckbox(
+    args: UpdateCardPropertyCheckboxArgs,
+  ): Promise<void> {
+    const { file, propertyId, propertyKey, checked } = args;
+
+    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+      const key = resolveFrontmatterKey(frontmatter, propertyId, propertyKey);
+      frontmatter[key] = checked;
     });
   }
 }

@@ -18,12 +18,18 @@ export type KanbanCardCallbacks = {
   linkClick: (evt: MouseEvent, target: string) => void;
   getPropertyEditorMode: (propertyId: BasesPropertyId) => PropertyEditorMode | null;
   getPropertyType: (propertyId: BasesPropertyId) => PropertyType;
+  getPropertyCheckboxState: (filePath: string, propertyId: BasesPropertyId) => boolean;
   getPropertySuggestions: (propertyId: BasesPropertyId) => string[];
   updatePropertyValues: (
     filePath: string,
     propertyId: BasesPropertyId,
     mode: PropertyEditorMode,
     values: string[],
+  ) => Promise<void>;
+  updatePropertyCheckbox: (
+    filePath: string,
+    propertyId: BasesPropertyId,
+    checked: boolean,
   ) => Promise<void>;
 };
 
