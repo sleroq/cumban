@@ -36,10 +36,18 @@ function resolveNextVersion(currentVersion, arg) {
     return formatVersion({ major: current.major + 1, minor: 0, patch: 0 });
   }
   if (arg === "minor") {
-    return formatVersion({ major: current.major, minor: current.minor + 1, patch: 0 });
+    return formatVersion({
+      major: current.major,
+      minor: current.minor + 1,
+      patch: 0,
+    });
   }
   if (arg === "patch") {
-    return formatVersion({ major: current.major, minor: current.minor, patch: current.patch + 1 });
+    return formatVersion({
+      major: current.major,
+      minor: current.minor,
+      patch: current.patch + 1,
+    });
   }
 
   parseVersion(arg);
@@ -56,9 +64,7 @@ function writeJson(filePath, value, indent = 2) {
 
 const arg = process.argv[2];
 if (arg === undefined || !VERSION_ARG_REGEX.test(arg)) {
-  console.error(
-    "Usage: node version-bump.mjs <major|minor|patch|x.y.z>",
-  );
+  console.error("Usage: node version-bump.mjs <major|minor|patch|x.y.z>");
   process.exit(1);
 }
 
