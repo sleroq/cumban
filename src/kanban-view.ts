@@ -37,6 +37,7 @@ import { getKanbanViewOptions } from "./kanban-view/options";
 import {
   detectGroupByProperty,
   getColumnKey,
+  getPropertyValues,
   getPropertyCandidates,
   getSelectedProperties,
   getWritablePropertyKey,
@@ -83,7 +84,24 @@ import {
   createKanbanViewModel,
   type KanbanViewModel,
 } from "./kanban-view/view-model";
-import type { KanbanCallbacks } from "./kanban-view/actions";
+import type {
+  KanbanCallbacks,
+  PropertyEditorMode,
+} from "./kanban-view/actions";
+
+type MetadataPropertyInfo = {
+  options?: Record<string, string> | string[];
+  type?: string;
+  widget?: string;
+};
+
+type MetadataTypeManagerLike = {
+  getPropertyInfo: (name: string) => MetadataPropertyInfo | undefined;
+};
+
+type AppWithMetadataTypeManager = App & {
+  metadataTypeManager?: MetadataTypeManagerLike;
+};
 
 export class KanbanView extends BasesView {
   type = "cumban";
@@ -276,6 +294,16 @@ export class KanbanView extends BasesView {
           this.showCardContextMenu(evt, entry.file),
         linkClick: (evt: MouseEvent, target: string) =>
           this.handleCardLinkClick(evt, target),
+        getPropertyEditorMode: (propertyId: BasesPropertyId) =>
+          this.getPropertyEditorMode(propertyId),
+        getPropertySuggestions: (propertyId: BasesPropertyId) =>
+          this.getPropertySuggestions(propertyId),
+        updatePropertyValues: (
+          filePath: string,
+          propertyId: BasesPropertyId,
+          mode: PropertyEditorMode,
+          values: string[],
+        ) => this.updateCardPropertyValues(filePath, propertyId, mode, values),
       },
       column: {
         createCard: (grpByProperty: BasesPropertyId | null, grpKey: unknown) =>
@@ -459,6 +487,184 @@ export class KanbanView extends BasesView {
 
     this.app.workspace.trigger("file-menu", menu, file, "kanban-view");
     menu.showAtMouseEvent(evt);
+  }
+
+  private getPropertyEditorMode(
+    propertyId: BasesPropertyId,
+  ): PropertyEditorMode | null {
+    const propertyName = this.getNotePropertyName(propertyId);
+    if (propertyName === null) {
+      return null;
+    }
+
+    const metadataTypeManager = (this.app as AppWithMetadataTypeManager)
+      .metadataTypeManager;
+    const propertyInfo = metadataTypeManager?.getPropertyInfo(
+      propertyName.toLowerCase(),
+    );
+    const widgetType = propertyInfo?.widget ?? propertyInfo?.type ?? "";
+
+    if (
+      widgetType === "multitext" ||
+      widgetType === "aliases" ||
+      widgetType === "tags"
+    ) {
+      return "multi";
+    }
+
+    if (widgetType === "dropdown" || widgetType === "select") {
+      return "single";
+    }
+
+    if (propertyName === "tags") {
+      return "multi";
+    }
+
+    return null;
+  }
+
+  private getPropertySuggestions(propertyId: BasesPropertyId): string[] {
+    const propertyName = this.getNotePropertyName(propertyId);
+    if (propertyName === null) {
+      return [];
+    }
+
+    const propertyKey = getWritablePropertyKey(propertyId);
+    if (propertyKey === null) {
+      return [];
+    }
+
+    const metadataTypeManager = (this.app as AppWithMetadataTypeManager)
+      .metadataTypeManager;
+    const propertyInfo = metadataTypeManager?.getPropertyInfo(
+      propertyName.toLowerCase(),
+    );
+
+    const suggestions = new Set<string>();
+    const options = propertyInfo?.options;
+    if (Array.isArray(options)) {
+      for (const option of options) {
+        const trimmed = option.trim();
+        if (trimmed.length > 0) {
+          suggestions.add(trimmed);
+        }
+      }
+    } else if (options !== undefined) {
+      for (const option of Object.values(options)) {
+        const trimmed = option.trim();
+        if (trimmed.length > 0) {
+          suggestions.add(trimmed);
+        }
+      }
+    }
+
+    for (const entry of this.entryByPath.values()) {
+      const values = getPropertyValues(entry.getValue(propertyId));
+      if (values === null) {
+        continue;
+      }
+      for (const value of values) {
+        suggestions.add(value);
+      }
+    }
+
+    const markdownFiles = this.app.vault.getMarkdownFiles();
+    for (const file of markdownFiles) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      const frontmatter = cache?.frontmatter;
+      if (frontmatter === undefined) {
+        continue;
+      }
+
+      const value = this.getFrontmatterPropertyValue(
+        frontmatter,
+        propertyId,
+        propertyKey,
+      );
+      this.collectSuggestionValues(value, suggestions);
+    }
+
+    return Array.from(suggestions).sort((a, b) => a.localeCompare(b));
+  }
+
+  private getFrontmatterPropertyValue(
+    frontmatter: Record<string, unknown>,
+    propertyId: BasesPropertyId,
+    propertyKey: string,
+  ): unknown {
+    if (Object.prototype.hasOwnProperty.call(frontmatter, propertyId)) {
+      return frontmatter[propertyId];
+    }
+    return frontmatter[propertyKey];
+  }
+
+  private collectSuggestionValues(
+    value: unknown,
+    suggestions: Set<string>,
+  ): void {
+    if (value === null || value === undefined) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const part of value) {
+        const text = String(part).trim();
+        if (text.length > 0) {
+          suggestions.add(text);
+        }
+      }
+      return;
+    }
+
+    const text = String(value).trim();
+    if (text.length === 0) {
+      return;
+    }
+
+    if (!text.includes(",")) {
+      suggestions.add(text);
+      return;
+    }
+
+    const parts = text
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    for (const part of parts) {
+      suggestions.add(part);
+    }
+  }
+
+  private async updateCardPropertyValues(
+    filePath: string,
+    propertyId: BasesPropertyId,
+    mode: PropertyEditorMode,
+    values: string[],
+  ): Promise<void> {
+    const propertyKey = getWritablePropertyKey(propertyId);
+    if (propertyKey === null) {
+      return;
+    }
+
+    const entry = this.entryByPath.get(filePath);
+    if (entry === undefined) {
+      return;
+    }
+
+    await this.mutationService.updateCardPropertyValues({
+      file: entry.file,
+      propertyId,
+      propertyKey,
+      mode,
+      values,
+    });
+  }
+
+  private getNotePropertyName(propertyId: BasesPropertyId): string | null {
+    if (!propertyId.startsWith("note.")) {
+      return null;
+    }
+    return propertyId.slice("note.".length);
   }
 
   private async trashFiles(files: TFile[]): Promise<void> {

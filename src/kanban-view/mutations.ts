@@ -1,10 +1,12 @@
 import { App, BasesEntry, type BasesPropertyId } from "obsidian";
+import type { TFile } from "obsidian";
 
 import {
   getTargetGroupValue,
   isSameGroupValue,
   resolveFrontmatterKey,
 } from "./utils";
+import type { PropertyEditorMode } from "./actions";
 
 type CreateCardForColumnArgs = {
   groupByProperty: BasesPropertyId | null;
@@ -22,6 +24,14 @@ type HandleDropArgs = {
   groupKey: unknown;
   draggedPaths: string[];
   entryByPath: Map<string, BasesEntry>;
+};
+
+type UpdateCardPropertyValuesArgs = {
+  file: TFile;
+  propertyId: BasesPropertyId;
+  propertyKey: string;
+  mode: PropertyEditorMode;
+  values: string[];
 };
 
 export class KanbanMutationService {
@@ -91,5 +101,30 @@ export class KanbanMutationService {
         },
       );
     }
+  }
+
+  async updateCardPropertyValues(
+    args: UpdateCardPropertyValuesArgs,
+  ): Promise<void> {
+    const { file, propertyId, propertyKey, mode, values } = args;
+
+    const trimmedValues = values
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+
+    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+      const key = resolveFrontmatterKey(frontmatter, propertyId, propertyKey);
+      if (trimmedValues.length === 0) {
+        delete frontmatter[key];
+        return;
+      }
+
+      if (mode === "single") {
+        frontmatter[key] = trimmedValues[0];
+        return;
+      }
+
+      frontmatter[key] = trimmedValues;
+    });
   }
 }

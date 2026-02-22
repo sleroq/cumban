@@ -1,6 +1,8 @@
 <script lang="ts">
-    import { getContext } from "svelte";
-    import type { BasesEntry, BasesPropertyId } from "obsidian";
+    import { onDestroy, onMount, getContext } from "svelte";
+    import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
+    import type { PropertyEditorMode } from "../kanban-view/actions";
+    import { PropertyValueSuggestModal } from "../kanban-view/property-value-suggest-modal";
     import {
         getPropertyValues,
         parseWikiLinks,
@@ -47,7 +49,7 @@
     }: Props = $props();
 
     // Get settings and selection store from context
-    const { settingsStore, selectedPathsStore } =
+    const { app, settingsStore, selectedPathsStore } =
         getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
     const boardContext = getContext<KanbanBoardContext>(
         KANBAN_BOARD_CONTEXT_KEY,
@@ -61,6 +63,17 @@
     let cardEl: HTMLElement | null = $state(null);
     let isDraggable: boolean = $state(false);
     let rafId: number | null = null;
+    let propertyEditorEl: HTMLElement | null = $state(null);
+    let propertyInputEl: HTMLInputElement | null = $state(null);
+    let editingPropertyId: BasesPropertyId | null = $state(null);
+    let editingMode: PropertyEditorMode | null = $state(null);
+    let editingValues: string[] = $state([]);
+    let originalValues: string[] = [];
+    let editInput = $state("");
+    let hasChanges = $state(false);
+    let isSaving = $state(false);
+    let activeModal: PropertyValueSuggestModal | null = null;
+    let suggestTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const filePath = $derived(entry.file.path);
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
@@ -169,6 +182,299 @@
 
         return cssVars.join("; ");
     }
+
+    function setXIcon(node: HTMLElement): { destroy: () => void } {
+        node.empty();
+        setIcon(node, "x");
+        return {
+            destroy(): void {
+                node.empty();
+            },
+        };
+    }
+
+    function arraysEqual(a: string[], b: string[]): boolean {
+        if (a.length !== b.length) {
+            return false;
+        }
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function markChanges(): void {
+        hasChanges = !arraysEqual(editingValues, originalValues);
+    }
+
+    function normalizeInputValue(rawValue: string): string {
+        return rawValue.trim();
+    }
+
+    function addValue(value: string): void {
+        const normalizedValue = normalizeInputValue(value);
+        if (normalizedValue.length === 0 || editingMode === null) {
+            return;
+        }
+
+        if (editingMode === "single") {
+            editingValues = [normalizedValue];
+            editInput = "";
+            markChanges();
+            return;
+        }
+
+        if (editingValues.includes(normalizedValue)) {
+            editInput = "";
+            return;
+        }
+
+        editingValues = [...editingValues, normalizedValue];
+        editInput = "";
+        markChanges();
+    }
+
+    function commitPendingInput(): void {
+        const pendingValue = normalizeInputValue(editInput);
+        if (pendingValue.length === 0) {
+            return;
+        }
+        addValue(pendingValue);
+    }
+
+    function removeValue(index: number): void {
+        if (index < 0 || index >= editingValues.length) {
+            return;
+        }
+
+        editingValues = editingValues.filter((_, valueIndex) => {
+            return valueIndex !== index;
+        });
+        markChanges();
+    }
+
+    function beginPropertyEditing(
+        propertyId: BasesPropertyId,
+        mode: PropertyEditorMode,
+        values: string[],
+    ): void {
+        editingPropertyId = propertyId;
+        editingMode = mode;
+        editingValues = [...values];
+        originalValues = [...values];
+        editInput = "";
+        hasChanges = false;
+        queueMicrotask(() => {
+            propertyInputEl?.focus();
+        });
+    }
+
+    function clearEditingState(): void {
+        if (suggestTimeout !== null) {
+            clearTimeout(suggestTimeout);
+            suggestTimeout = null;
+        }
+        activeModal?.close();
+        activeModal = null;
+        editingPropertyId = null;
+        editingMode = null;
+        editingValues = [];
+        originalValues = [];
+        editInput = "";
+        hasChanges = false;
+        isSaving = false;
+    }
+
+    async function exitPropertyEditing(save: boolean): Promise<void> {
+        if (editingPropertyId === null || editingMode === null) {
+            return;
+        }
+
+        const propertyId = editingPropertyId;
+        const mode = editingMode;
+
+        commitPendingInput();
+
+        if (save && hasChanges && !isSaving) {
+            isSaving = true;
+            try {
+                await callbacks.card.updatePropertyValues(
+                    filePath,
+                    propertyId,
+                    mode,
+                    editingValues,
+                );
+            } finally {
+                clearEditingState();
+            }
+            return;
+        }
+
+        clearEditingState();
+    }
+
+    async function switchPropertyEditing(
+        propertyId: BasesPropertyId,
+        mode: PropertyEditorMode,
+        values: string[],
+    ): Promise<void> {
+        if (editingPropertyId !== null && editingPropertyId !== propertyId) {
+            await exitPropertyEditing(true);
+        }
+
+        beginPropertyEditing(propertyId, mode, values);
+    }
+
+    function handlePropertyRowClick(
+        evt: MouseEvent,
+        propertyId: BasesPropertyId,
+        mode: PropertyEditorMode | null,
+        values: string[],
+    ): void {
+        if (mode === null) {
+            return;
+        }
+        evt.preventDefault();
+        evt.stopPropagation();
+        void switchPropertyEditing(propertyId, mode, values);
+    }
+
+    function handlePropertyEditorClick(evt: MouseEvent): void {
+        evt.stopPropagation();
+    }
+
+    function handlePropertyInputKeyDown(evt: KeyboardEvent): void {
+        evt.stopPropagation();
+
+        if (evt.key === "Enter" || evt.key === ",") {
+            evt.preventDefault();
+            addValue(editInput);
+            return;
+        }
+
+        if (evt.key === "Backspace" && editInput.trim().length === 0) {
+            removeValue(editingValues.length - 1);
+            return;
+        }
+
+        if (evt.key === "Escape") {
+            evt.preventDefault();
+            void exitPropertyEditing(false);
+            return;
+        }
+
+        if (evt.key === "Tab" && evt.shiftKey === false) {
+            commitPendingInput();
+            return;
+        }
+
+        if (evt.key === "ArrowDown" || (evt.ctrlKey && evt.key === " ")) {
+            evt.preventDefault();
+            openSuggestions();
+        }
+    }
+
+    function handleRemoveValue(evt: MouseEvent, index: number): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        removeValue(index);
+    }
+
+    function getFilteredSuggestions(propertyId: BasesPropertyId): string[] {
+        const allSuggestions = callbacks.card.getPropertySuggestions(propertyId);
+        const query = editInput.trim().toLowerCase();
+        return allSuggestions.filter((value: string) => {
+            const isAlreadySelected = editingValues.includes(value);
+            if (isAlreadySelected) {
+                return false;
+            }
+            if (query.length === 0) {
+                return true;
+            }
+            return value.toLowerCase().includes(query);
+        });
+    }
+
+    function openSuggestions(): void {
+        if (editingPropertyId === null) {
+            return;
+        }
+
+        const suggestions = getFilteredSuggestions(editingPropertyId);
+        activeModal?.close();
+        activeModal = new PropertyValueSuggestModal({
+            app,
+            initialQuery: editInput,
+            items: suggestions,
+            onChoose: (value: string) => {
+                addValue(value);
+            },
+        });
+        activeModal.setCloseCallback(() => {
+            activeModal = null;
+            queueMicrotask(() => {
+                propertyInputEl?.focus();
+            });
+        });
+        activeModal.open();
+    }
+
+    function scheduleSuggestions(): void {
+        if (editingPropertyId === null) {
+            return;
+        }
+        if (suggestTimeout !== null) {
+            clearTimeout(suggestTimeout);
+        }
+        suggestTimeout = setTimeout(() => {
+            suggestTimeout = null;
+            openSuggestions();
+        }, 120);
+    }
+
+    onMount(() => {
+        const handleDocumentMouseDown = (evt: MouseEvent): void => {
+            if (editingPropertyId === null) {
+                return;
+            }
+
+            const target = evt.target;
+            if (!(target instanceof Node)) {
+                return;
+            }
+
+            const editorEl = propertyEditorEl;
+            if (editorEl !== null && editorEl.contains(target)) {
+                return;
+            }
+
+            if (activeModal !== null) {
+                return;
+            }
+
+            void exitPropertyEditing(true);
+        };
+
+        document.addEventListener("mousedown", handleDocumentMouseDown, true);
+        return () => {
+            document.removeEventListener(
+                "mousedown",
+                handleDocumentMouseDown,
+                true,
+            );
+        };
+    });
+
+    onDestroy(() => {
+        if (suggestTimeout !== null) {
+            clearTimeout(suggestTimeout);
+            suggestTimeout = null;
+        }
+        activeModal?.close();
+        activeModal = null;
+    });
 
     function handleClick(evt: MouseEvent): void {
         if ((evt.target as HTMLElement).closest("a") !== null) {
@@ -329,60 +635,141 @@
             {#each propertiesToDisplay as propertyId (propertyId)}
                 {@const values = getPropertyValues(entry.getValue(propertyId))}
                 {#if values !== null}
-                    <div class="bases-kanban-property-row">
-                        {#each values as value, i (i)}
-                            {@const links = parseWikiLinks(value)}
-                            {@const isTagProperty = propertyId.endsWith(
-                                settings.tagPropertySuffix,
-                            )}
-                            {#if links.length === 0}
-                                {@const cls = isTagProperty
-                                    ? "bases-kanban-property-value bases-kanban-property-tag"
-                                    : "bases-kanban-property-value"}
-                                <span
-                                    class={cls}
-                                    style={getPrettyTagStyleVars(
-                                        value,
-                                        isTagProperty,
-                                    )}
-                                >
-                                    {value}
-                                </span>
-                            {:else}
-                                {#each links as link, linkIndex (linkIndex)}
-                                    {@const cls = isTagProperty
-                                        ? "bases-kanban-property-value internal-link bases-kanban-property-link bases-kanban-property-tag"
-                                        : "bases-kanban-property-value internal-link bases-kanban-property-link"}
-                                    <!-- svelte-ignore a11y_invalid_attribute -->
-                                    <a
-                                        href="#"
-                                        class={cls}
+                    {@const mode = callbacks.card.getPropertyEditorMode(
+                        propertyId,
+                    )}
+                    {@const isTagProperty = propertyId.endsWith(
+                        settings.tagPropertySuffix,
+                    )}
+                    {@const isEditingProperty = editingPropertyId === propertyId}
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div
+                        class="bases-kanban-property-row"
+                        class:bases-kanban-property-row-editable={mode !== null}
+                        onclick={(evt: MouseEvent) =>
+                            handlePropertyRowClick(evt, propertyId, mode, values)}
+                    >
+                        {#if isEditingProperty && mode !== null}
+                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                                bind:this={propertyEditorEl}
+                                class="bases-kanban-property-editor"
+                                onclick={handlePropertyEditorClick}
+                            >
+                                {#each editingValues as value, valueIndex (`${value}-${valueIndex}`)}
+                                    {@const chipClass = isTagProperty
+                                        ? "bases-kanban-property-value bases-kanban-property-tag bases-kanban-property-chip"
+                                        : "bases-kanban-property-value bases-kanban-property-chip"}
+                                    <span
+                                        class={chipClass}
                                         style={getPrettyTagStyleVars(
-                                            link.display,
+                                            value,
                                             isTagProperty,
                                         )}
-                                        onclick={(evt: MouseEvent) =>
-                                            handlePropertyLinkClick(
-                                                evt,
-                                                link.target,
-                                            )}
                                     >
-                                        {link.display}
-                                    </a>
-                                    {#if !isTagProperty && linkIndex < links.length - 1}
-                                        <span
-                                            class="bases-kanban-property-separator"
-                                            >{settings.propertyValueSeparator}</span
+                                        <span>{value}</span>
+                                        <button
+                                            type="button"
+                                            class="bases-kanban-property-remove"
+                                            aria-label="Remove value"
+                                            onclick={(evt: MouseEvent) =>
+                                                handleRemoveValue(
+                                                    evt,
+                                                    valueIndex,
+                                                )}
                                         >
-                                    {/if}
+                                            <span
+                                                class="bases-kanban-property-remove-icon"
+                                                use:setXIcon
+                                            ></span>
+                                        </button>
+                                    </span>
                                 {/each}
-                            {/if}
-                            {#if !isTagProperty && i < values.length - 1}
-                                <span class="bases-kanban-property-separator"
-                                    >{settings.propertyValueSeparator}</span
+                                <input
+                                    bind:this={propertyInputEl}
+                                    class="bases-kanban-property-input"
+                                    type="text"
+                                    value={editInput}
+                                    placeholder="Add value"
+                                    oninput={(evt: Event) => {
+                                        const target = evt.target;
+                                        if (
+                                            target instanceof HTMLInputElement
+                                        ) {
+                                            editInput = target.value;
+                                            scheduleSuggestions();
+                                        }
+                                    }}
+                                    onkeydown={handlePropertyInputKeyDown}
+                                    onclick={handlePropertyEditorClick}
+                                />
+                                <button
+                                    type="button"
+                                    class="bases-kanban-property-suggest"
+                                    aria-label="Show suggestions"
+                                    onclick={(evt: MouseEvent) => {
+                                        evt.preventDefault();
+                                        evt.stopPropagation();
+                                        openSuggestions();
+                                    }}
                                 >
-                            {/if}
-                        {/each}
+                                    +
+                                </button>
+                            </div>
+                        {:else}
+                            {#each values as value, i (i)}
+                                {@const links = parseWikiLinks(value)}
+                                {#if links.length === 0}
+                                    {@const cls = isTagProperty
+                                        ? "bases-kanban-property-value bases-kanban-property-tag"
+                                        : "bases-kanban-property-value"}
+                                    <span
+                                        class={cls}
+                                        style={getPrettyTagStyleVars(
+                                            value,
+                                            isTagProperty,
+                                        )}
+                                    >
+                                        {value}
+                                    </span>
+                                {:else}
+                                    {#each links as link, linkIndex (linkIndex)}
+                                        {@const cls = isTagProperty
+                                            ? "bases-kanban-property-value internal-link bases-kanban-property-link bases-kanban-property-tag"
+                                            : "bases-kanban-property-value internal-link bases-kanban-property-link"}
+                                        <!-- svelte-ignore a11y_invalid_attribute -->
+                                        <a
+                                            href="#"
+                                            class={cls}
+                                            style={getPrettyTagStyleVars(
+                                                link.display,
+                                                isTagProperty,
+                                            )}
+                                            onclick={(evt: MouseEvent) =>
+                                                handlePropertyLinkClick(
+                                                    evt,
+                                                    link.target,
+                                                )}
+                                        >
+                                            {link.display}
+                                        </a>
+                                        {#if !isTagProperty && linkIndex < links.length - 1}
+                                            <span
+                                                class="bases-kanban-property-separator"
+                                                >{settings.propertyValueSeparator}</span
+                                            >
+                                        {/if}
+                                    {/each}
+                                {/if}
+                                {#if !isTagProperty && i < values.length - 1}
+                                    <span class="bases-kanban-property-separator"
+                                        >{settings.propertyValueSeparator}</span
+                                    >
+                                {/if}
+                            {/each}
+                        {/if}
                     </div>
                 {/if}
             {/each}

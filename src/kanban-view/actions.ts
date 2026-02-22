@@ -1,5 +1,7 @@
 import type { BasesEntry, BasesPropertyId } from "obsidian";
 
+export type PropertyEditorMode = "single" | "multi";
+
 export type KanbanCardCallbacks = {
   select: (filePath: string, extendSelection: boolean) => void;
   dragStart: (filePath: string, cardIndex: number) => void;
@@ -12,6 +14,14 @@ export type KanbanCardCallbacks = {
   ) => void;
   contextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
   linkClick: (evt: MouseEvent, target: string) => void;
+  getPropertyEditorMode: (propertyId: BasesPropertyId) => PropertyEditorMode | null;
+  getPropertySuggestions: (propertyId: BasesPropertyId) => string[];
+  updatePropertyValues: (
+    filePath: string,
+    propertyId: BasesPropertyId,
+    mode: PropertyEditorMode,
+    values: string[],
+  ) => Promise<void>;
 };
 
 export type KanbanColumnCallbacks = {
