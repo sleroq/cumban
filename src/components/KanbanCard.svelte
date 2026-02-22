@@ -2,7 +2,7 @@
     import { onDestroy, onMount, getContext } from "svelte";
     import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
     import type { PropertyEditorMode } from "../kanban-view/actions";
-    import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-modal";
+    import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-popover";
     import {
         getPropertyValues,
         parseWikiLinks,
@@ -144,35 +144,49 @@
     function getPrettyTagStyleVars(
         value: string,
         isTagProperty: boolean,
+        options?: { fallbackToAccent?: boolean },
     ): string | undefined {
+        const fallbackToAccent = options?.fallbackToAccent ?? false;
         if (!isTagProperty || typeof window === "undefined") {
             return undefined;
         }
 
         const prettyApi = (window as WindowWithPrettyPropertiesApi)
             .PrettyPropertiesApi;
-        if (prettyApi === undefined) {
+        if (prettyApi === undefined && !fallbackToAccent) {
             return undefined;
         }
 
         const normalizedTagValue = normalizeTagValue(value);
-        const background = prettyApi.getPropertyBackgroundColorValue(
-            "tags",
-            normalizedTagValue,
-        );
-        const text = prettyApi.getPropertyTextColorValue(
-            "tags",
-            normalizedTagValue,
-        );
+        const background =
+            prettyApi?.getPropertyBackgroundColorValue(
+                "tags",
+                normalizedTagValue,
+            ) ?? "";
+        const text =
+            prettyApi?.getPropertyTextColorValue(
+                "tags",
+                normalizedTagValue,
+            ) ?? "";
 
         const cssVars: string[] = [];
         if (background !== "") {
             cssVars.push(`--tag-background: ${background}`);
             cssVars.push(`--tag-background-hover: ${background}`);
+        } else if (fallbackToAccent) {
+            cssVars.push("--tag-background: var(--interactive-accent)");
+            cssVars.push(
+                "--tag-background-hover: var(--interactive-accent-hover, var(--interactive-accent))",
+            );
         }
         if (text !== "") {
             cssVars.push(`--tag-color: ${text}`);
             cssVars.push(`--tag-color-hover: ${text}`);
+        } else if (fallbackToAccent) {
+            cssVars.push("--tag-color: var(--text-on-accent)");
+            cssVars.push(
+                "--tag-color-hover: var(--text-on-accent)",
+            );
         }
 
         if (cssVars.length === 0) {
@@ -185,33 +199,27 @@
     function getPrettyTagPillStyle(
         value: string,
         isTagProperty: boolean,
+        options?: { fallbackToAccent?: boolean },
     ): string | undefined {
-        if (!isTagProperty || typeof window === "undefined") {
+        const cssVars = getPrettyTagStyleVars(value, isTagProperty, options);
+        if (cssVars === undefined) {
             return undefined;
         }
-
-        const prettyApi = (window as WindowWithPrettyPropertiesApi)
-            .PrettyPropertiesApi;
-        if (prettyApi === undefined) {
-            return undefined;
-        }
-
-        const normalizedTagValue = normalizeTagValue(value);
-        const background = prettyApi.getPropertyBackgroundColorValue(
-            "tags",
-            normalizedTagValue,
-        );
-        const text = prettyApi.getPropertyTextColorValue(
-            "tags",
-            normalizedTagValue,
-        );
 
         const styles: string[] = [];
-        if (background !== "") {
-            styles.push(`background: ${background}`);
-        }
-        if (text !== "") {
-            styles.push(`color: ${text}`);
+        for (const segment of cssVars.split(";")) {
+            const [rawKey, rawValue] = segment.split(":");
+            if (rawKey === undefined || rawValue === undefined) {
+                continue;
+            }
+            const key = rawKey.trim();
+            const valuePart = rawValue.trim();
+            if (key === "--tag-background") {
+                styles.push(`background: ${valuePart}`);
+            }
+            if (key === "--tag-color") {
+                styles.push(`color: ${valuePart}`);
+            }
         }
 
         if (styles.length === 0) {
@@ -251,6 +259,36 @@
         return rawValue.trim();
     }
 
+    function clearEditInput(): void {
+        editInput = "";
+        if (propertyInputEl !== null) {
+            propertyInputEl.textContent = "";
+        }
+    }
+
+    function getCurrentEditInput(): string {
+        if (propertyInputEl !== null) {
+            return propertyInputEl.textContent ?? "";
+        }
+        return editInput;
+    }
+
+    function isEditInputCompletelyEmpty(): boolean {
+        return getCurrentEditInput().length === 0;
+    }
+
+    function placeCaretAtEnd(el: HTMLElement): void {
+        const selection = window.getSelection();
+        if (selection === null) {
+            return;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
     function addValue(value: string): void {
         const normalizedValue = normalizeInputValue(value);
         if (normalizedValue.length === 0 || editingMode === null) {
@@ -259,23 +297,23 @@
 
         if (editingMode === "single") {
             editingValues = [normalizedValue];
-            editInput = "";
+            clearEditInput();
             markChanges();
             return;
         }
 
         if (editingValues.includes(normalizedValue)) {
-            editInput = "";
+            clearEditInput();
             return;
         }
 
         editingValues = [...editingValues, normalizedValue];
-        editInput = "";
+        clearEditInput();
         markChanges();
     }
 
     function commitPendingInput(): void {
-        const pendingValue = normalizeInputValue(editInput);
+        const pendingValue = normalizeInputValue(getCurrentEditInput());
         if (pendingValue.length === 0) {
             return;
         }
@@ -408,22 +446,38 @@
 
         if (evt.key === "Enter" || evt.key === ",") {
             evt.preventDefault();
-            addValue(editInput);
+            addValue(getCurrentEditInput());
             return;
         }
 
-        if (evt.key === "Backspace" && editInput.trim().length === 0) {
+        if (
+            evt.key === "Backspace" &&
+            isEditInputCompletelyEmpty()
+        ) {
             removeValue(editingValues.length - 1);
             return;
         }
 
         if (evt.key === "Escape") {
             evt.preventDefault();
-            void exitPropertyEditing(false);
+            void exitPropertyEditing(true);
             return;
         }
 
         if (evt.key === "Tab" && evt.shiftKey === false) {
+            const completedValue = activeSuggest?.completeSelectedSuggestion();
+            if (completedValue !== undefined && completedValue !== null) {
+                evt.preventDefault();
+                editInput = completedValue;
+                queueMicrotask(() => {
+                    if (propertyInputEl === null) {
+                        return;
+                    }
+                    propertyInputEl.focus();
+                    placeCaretAtEnd(propertyInputEl);
+                });
+                return;
+            }
             commitPendingInput();
             return;
         }
@@ -712,6 +766,7 @@
                                         style={getPrettyTagPillStyle(
                                             value,
                                             isTagProperty,
+                                            { fallbackToAccent: true },
                                         )}
                                     >
                                         <div class="multi-select-pill-content">

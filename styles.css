@@ -322,3 +322,16 @@
 	background-color: var(--background-modifier-error);
 	color: var(--text-on-accent);
 }
+
+/* Property editor input styles - ensure empty input is large enough to click into */
+.multi-select-input {
+	min-width: 60px;
+	min-height: 20px;
+	padding: 2px 4px;
+}
+
+.multi-select-input:empty::before {
+	content: attr(data-placeholder);
+	color: var(--text-muted);
+	pointer-events: none;
+}
