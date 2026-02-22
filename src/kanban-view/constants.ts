@@ -10,3 +10,4 @@ export const BACKGROUND_BRIGHTNESS_OPTION_KEY = "backgroundBrightness";
 export const BACKGROUND_BLUR_OPTION_KEY = "backgroundBlur";
 export const COLUMN_TRANSPARENCY_OPTION_KEY = "columnTransparency";
 export const COLUMN_BLUR_OPTION_KEY = "columnBlur";
+export const PINNED_COLUMNS_OPTION_KEY = "pinnedColumns";

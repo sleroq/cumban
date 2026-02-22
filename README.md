@@ -8,7 +8,7 @@
 - Group by any property to organize cards (status, priority, tags, etc.)
 - Drag column headers to reorder columns
 - Create new cards from column headers with auto-filled properties
-- Multi-select cards (Shift/Cmd/Ctrl + click) and batch move to trash
+- Multi-select cards (Shift/Cmd/Ctrl + click) and batch move or trash
 - Custom backgrounds with brightness/blur controls
 - Tag styling with consistent colors based on tag name
 - Wiki links render as clickable on cards

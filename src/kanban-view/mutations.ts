@@ -1,4 +1,4 @@
-import { App, BasesEntry, BasesPropertyId } from "obsidian";
+import { App, BasesEntry, type BasesPropertyId } from "obsidian";
 
 import {
   getTargetGroupValue,

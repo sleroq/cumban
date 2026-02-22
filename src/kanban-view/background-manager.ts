@@ -8,34 +8,19 @@ export type BackgroundConfig = {
   columnBlur: number;
 };
 
-export type BackgroundManagerState = {
-  bgEl: HTMLElement | null;
-  cachedImageUrl: string | null;
-  cachedBackgroundInput: string | null;
-  cachedResolvedImageUrl: string | null;
-  cachedBackgroundFilter: string | null;
-  cachedColumnTransparencyValue: number | null;
-  cachedColumnBlurValue: number | null;
-  imageLoadVersion: number;
+export type ResolvedBackgroundStyles = {
+  hasImage: boolean;
+  imageUrl: string | null;
+  backgroundFilter: string;
+  columnTransparencyValue: number;
+  columnBlurValue: number;
 };
 
-export function createBackgroundManagerState(): BackgroundManagerState {
-  return {
-    bgEl: null,
-    cachedImageUrl: null,
-    cachedBackgroundInput: null,
-    cachedResolvedImageUrl: null,
-    cachedBackgroundFilter: null,
-    cachedColumnTransparencyValue: null,
-    cachedColumnBlurValue: null,
-    imageLoadVersion: 0,
-  };
-}
-
-function resolveBackgroundInput(
-  app: App,
-  input: string,
-): string | null {
+/**
+ * Resolve a background image input to a usable URL.
+ * Supports HTTP(S) URLs and vault file paths.
+ */
+function resolveBackgroundInput(app: App, input: string): string | null {
   const trimmed = input.trim();
   if (trimmed.length === 0) {
     return null;
@@ -56,57 +41,9 @@ function resolveBackgroundInput(
   return null;
 }
 
-function resolveBackgroundImageUrl(
-  app: App,
-  state: BackgroundManagerState,
-  rawInput: unknown,
-): string | null {
-  if (typeof rawInput !== "string") {
-    state.cachedBackgroundInput = null;
-    state.cachedResolvedImageUrl = null;
-    return null;
-  }
-
-  if (rawInput === state.cachedBackgroundInput) {
-    return state.cachedResolvedImageUrl;
-  }
-
-  const resolvedImageUrl = resolveBackgroundInput(app, rawInput);
-  state.cachedBackgroundInput = rawInput;
-  state.cachedResolvedImageUrl = resolvedImageUrl;
-  return resolvedImageUrl;
-}
-
-function preloadBackgroundImage(
-  rootEl: HTMLElement,
-  state: BackgroundManagerState,
-  imageUrl: string,
-): void {
-  const currentVersion = state.imageLoadVersion + 1;
-  state.imageLoadVersion = currentVersion;
-  const image = new Image();
-  image.onload = () => {
-    if (currentVersion !== state.imageLoadVersion) {
-      return;
-    }
-
-    if (state.bgEl === null || !rootEl.contains(state.bgEl)) {
-      return;
-    }
-
-    state.bgEl.style.backgroundImage = `url("${imageUrl}")`;
-    state.cachedImageUrl = imageUrl;
-  };
-  image.onerror = () => {
-    if (currentVersion !== state.imageLoadVersion) {
-      return;
-    }
-
-    console.error(`Failed to load background image: ${imageUrl}`);
-  };
-  image.src = imageUrl;
-}
-
+/**
+ * Clamp a numeric config value to a valid range.
+ */
 function getConfigNumber(
   rawValue: unknown,
   globalDefault: number,
@@ -119,94 +56,69 @@ function getConfigNumber(
   return globalDefault;
 }
 
-export function applyBackground(
+/**
+ * Resolve background configuration to concrete style values.
+ * Returns an object with computed CSS values and image URL.
+ */
+export function resolveBackgroundStyles(
   app: App,
-  rootEl: HTMLElement,
-  state: BackgroundManagerState,
   config: BackgroundConfig,
-): void {
-  const imageUrl = resolveBackgroundImageUrl(app, state, config.imageInput);
+): ResolvedBackgroundStyles {
+  // Resolve image URL
+  let imageUrl: string | null = null;
+  if (typeof config.imageInput === "string" && config.imageInput.length > 0) {
+    imageUrl = resolveBackgroundInput(app, config.imageInput);
+  }
 
   // Get configuration values
   const brightness = getConfigNumber(config.brightness, 100, 0, 100);
   const blur = getConfigNumber(config.blur, 0, 0, 20);
-  const columnTransparency = getConfigNumber(config.columnTransparency, 0, 0, 100);
+  const columnTransparency = getConfigNumber(
+    config.columnTransparency,
+    0,
+    0,
+    100,
+  );
   const columnBlur = getConfigNumber(config.columnBlur, 0, 0, 20);
 
-  // Apply column transparency CSS variable
-  const columnTransparencyValue = columnTransparency / 100;
-  if (state.cachedColumnTransparencyValue !== columnTransparencyValue) {
-    rootEl.style.setProperty(
-      "--bases-kanban-column-transparency",
-      String(columnTransparencyValue),
-    );
-    state.cachedColumnTransparencyValue = columnTransparencyValue;
-  }
-
-  // Apply column blur CSS variable
-  if (state.cachedColumnBlurValue !== columnBlur) {
-    rootEl.style.setProperty(
-      "--bases-kanban-column-blur",
-      `${columnBlur}px`,
-    );
-    state.cachedColumnBlurValue = columnBlur;
-  }
-
-  // Manage background element
-  if (imageUrl !== null) {
-    const urlChanged = imageUrl !== state.cachedImageUrl;
-    let createdBackgroundElement = false;
-
-    if (state.bgEl === null || !rootEl.contains(state.bgEl)) {
-      state.bgEl = rootEl.createDiv({ cls: "bases-kanban-background" });
-      createdBackgroundElement = true;
-    }
-
-    if (state.bgEl === null) {
-      return;
-    }
-
-    if (createdBackgroundElement && state.cachedImageUrl !== null) {
-      state.bgEl.style.backgroundImage = `url("${state.cachedImageUrl}")`;
-    }
-
-    if (urlChanged) {
-      preloadBackgroundImage(rootEl, state, imageUrl);
-    } else if (createdBackgroundElement) {
-      state.bgEl.style.backgroundImage = `url("${imageUrl}")`;
-    }
-
-    const nextFilter = `blur(${blur}px) brightness(${brightness}%)`;
-    if (
-      createdBackgroundElement ||
-      state.cachedBackgroundFilter !== nextFilter
-    ) {
-      state.bgEl.style.filter = nextFilter;
-      state.cachedBackgroundFilter = nextFilter;
-    }
-    return;
-  }
-
-  state.imageLoadVersion += 1;
-  if (state.bgEl !== null) {
-    state.bgEl.remove();
-    state.bgEl = null;
-  }
-  state.cachedImageUrl = null;
-  state.cachedBackgroundFilter = null;
-  state.cachedColumnBlurValue = null;
+  return {
+    hasImage: imageUrl !== null,
+    imageUrl,
+    backgroundFilter: `blur(${blur}px) brightness(${brightness}%)`,
+    columnTransparencyValue: columnTransparency / 100,
+    columnBlurValue: columnBlur,
+  };
 }
 
-export function cleanupBackground(state: BackgroundManagerState): void {
-  state.imageLoadVersion += 1;
-  if (state.bgEl !== null) {
-    state.bgEl.remove();
-    state.bgEl = null;
-  }
-  state.cachedImageUrl = null;
-  state.cachedBackgroundInput = null;
-  state.cachedResolvedImageUrl = null;
-  state.cachedBackgroundFilter = null;
-  state.cachedColumnTransparencyValue = null;
-  state.cachedColumnBlurValue = null;
+/**
+ * Preload a background image and apply it to an element when ready.
+ * Returns a cleanup function to cancel the load operation.
+ */
+export function preloadBackgroundImage(
+  imageUrl: string,
+  bgEl: HTMLElement,
+  onLoad?: () => void,
+  onError?: () => void,
+): () => void {
+  let cancelled = false;
+  const image = new Image();
+
+  image.onload = () => {
+    if (cancelled) return;
+    bgEl.style.backgroundImage = `url("${imageUrl}")`;
+    onLoad?.();
+  };
+
+  image.onerror = () => {
+    if (cancelled) return;
+    console.error(`Failed to load background image: ${imageUrl}`);
+    onError?.();
+  };
+
+  image.src = imageUrl;
+
+  // Return cleanup function
+  return () => {
+    cancelled = true;
+  };
 }

@@ -10,13 +10,16 @@
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "strict": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
     "lib": [
       "DOM",
       "ES2022"
     ]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.svelte"
   ],
   "exclude": [
     "old-version/**",

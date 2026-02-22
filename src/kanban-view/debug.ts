@@ -114,8 +114,3 @@ export function logDebug(
     console.log(`[${timestamp}] [${category}] ${message}`);
   }
 }
-
-// Check if debug mode is active (useful for conditional UI elements)
-export function isDebugModeActive(): boolean {
-  return isDebugEnabled();
-}

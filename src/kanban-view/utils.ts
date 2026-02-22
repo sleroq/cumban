@@ -1,4 +1,4 @@
-import { BasesEntryGroup, BasesPropertyId, NullValue } from "obsidian";
+import { BasesEntryGroup, type BasesPropertyId, NullValue } from "obsidian";
 
 import { NO_VALUE_COLUMN, NO_VALUE_COLUMN_KEY } from "./constants";
 
@@ -95,15 +95,6 @@ export function detectGroupByProperty(
   return null;
 }
 
-export function formatPropertyValue(value: unknown): string | null {
-  if (value === null || value === undefined || value instanceof NullValue) {
-    return null;
-  }
-
-  const stringValue = String(value).trim();
-  return stringValue.length > 0 ? stringValue : null;
-}
-
 export interface ParsedWikiLink {
   target: string;
   display: string;
@@ -177,10 +168,6 @@ export function getColumnKey(groupKey: unknown): string {
   return String(groupKey);
 }
 
-export function sortRange(start: number, end: number): [number, number] {
-  return start <= end ? [start, end] : [end, start];
-}
-
 export function getWritablePropertyKey(
   propertyId: BasesPropertyId,
 ): string | null {
@@ -194,44 +181,6 @@ export function getWritablePropertyKey(
   }
 
   return propertyId.slice(lastDotIndex + 1);
-}
-
-export function getCardDropTargetFromColumn(
-  cardsEl: HTMLElement,
-  clientY: number,
-): { path: string; placement: "before" | "after" } | null {
-  const cards = cardsEl.querySelectorAll<HTMLElement>(".bases-kanban-card");
-  if (cards.length === 0) {
-    return null;
-  }
-
-  let bestDistance = Number.POSITIVE_INFINITY;
-  let bestPath: string | null = null;
-  let bestPlacement: "before" | "after" = "after";
-
-  cards.forEach((cardEl) => {
-    const path = cardEl.dataset.cardPath;
-    if (typeof path !== "string" || path.length === 0) {
-      return;
-    }
-
-    const rect = cardEl.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const distance = Math.abs(clientY - midY);
-    if (distance >= bestDistance) {
-      return;
-    }
-
-    bestDistance = distance;
-    bestPath = path;
-    bestPlacement = clientY < midY ? "before" : "after";
-  });
-
-  if (bestPath === null) {
-    return null;
-  }
-
-  return { path: bestPath, placement: bestPlacement };
 }
 
 export function getTargetGroupValue(groupKey: unknown): string | null {

@@ -6,8 +6,6 @@ export type BoardScrollState = {
   left: number;
   top: number;
   sessionId: string;
-  revision: number;
-  updatedAt: number;
 };
 
 export type ScrollPosition = {
@@ -23,14 +21,10 @@ export function saveBoardScrollState(
   scrollLeft: number,
   scrollTop: number,
   viewSessionId: string,
-  scrollRevision: number,
-): number {
-  const nextRevision = scrollRevision + 1;
-
+): void {
   logScrollEvent("Scroll position saved", {
     scrollLeft,
     scrollTop,
-    revision: nextRevision,
     sessionId: viewSessionId.slice(0, 8) + "...",
   });
 
@@ -38,12 +32,9 @@ export function saveBoardScrollState(
     left: scrollLeft,
     top: scrollTop,
     sessionId: viewSessionId,
-    revision: nextRevision,
-    updatedAt: Date.now(),
   };
 
   setConfig(stateKey, JSON.stringify(scrollState));
-  return nextRevision;
 }
 
 export function loadScrollState(
@@ -62,8 +53,7 @@ export function loadScrollState(
       parsed === null ||
       !("left" in parsed) ||
       !("top" in parsed) ||
-      !("sessionId" in parsed) ||
-      !("revision" in parsed)
+      !("sessionId" in parsed)
     ) {
       return null;
     }
@@ -72,8 +62,6 @@ export function loadScrollState(
       left: unknown;
       top: unknown;
       sessionId: unknown;
-      revision: unknown;
-      updatedAt?: unknown;
     };
 
     const left =
@@ -81,21 +69,11 @@ export function loadScrollState(
         ? state.left
         : 0;
     const top =
-      typeof state.top === "number" && !Number.isNaN(state.top)
-        ? state.top
-        : 0;
+      typeof state.top === "number" && !Number.isNaN(state.top) ? state.top : 0;
     const sessionId =
       typeof state.sessionId === "string" ? state.sessionId : "";
-    const revision =
-      typeof state.revision === "number" && !Number.isNaN(state.revision)
-        ? state.revision
-        : 0;
-    const updatedAt =
-      typeof state.updatedAt === "number" && !Number.isNaN(state.updatedAt)
-        ? state.updatedAt
-        : 0;
 
-    return { left, top, sessionId, revision, updatedAt };
+    return { left, top, sessionId };
   } catch {
     return null;
   }
@@ -170,6 +148,49 @@ export function parseColumnOrder(
 
 export function serializeColumnOrder(columnOrder: string[]): string {
   return columnOrder.join(",");
+}
+
+// ===== Pinned Columns =====
+
+export type PinnedColumnsCache = {
+  columns: string[] | null;
+  raw: string;
+};
+
+export function parsePinnedColumns(
+  configValue: unknown,
+  cache: PinnedColumnsCache,
+): { columns: string[]; cache: PinnedColumnsCache } {
+  if (typeof configValue !== "string" || configValue.trim().length === 0) {
+    if (cache.columns !== null) {
+      logCacheEvent("Pinned columns cache cleared - empty config");
+    }
+    return { columns: [], cache: { columns: null, raw: "" } };
+  }
+
+  if (configValue === cache.raw && cache.columns !== null) {
+    logCacheEvent("Pinned columns cache HIT");
+    return { columns: cache.columns, cache };
+  }
+
+  logCacheEvent("Pinned columns cache MISS - parsing config");
+
+  const result = configValue
+    .split(",")
+    .map((columnKey) => columnKey.trim())
+    .filter((columnKey) => columnKey.length > 0);
+
+  const newCache: PinnedColumnsCache = {
+    columns: result,
+    raw: configValue,
+  };
+
+  logCacheEvent("Pinned columns cache SAVED", { columnCount: result.length });
+  return { columns: result, cache: newCache };
+}
+
+export function serializePinnedColumns(columns: string[]): string {
+  return columns.join(",");
 }
 
 // ===== Local Card Order =====
@@ -260,9 +281,7 @@ export function serializeLocalCardOrder(
     serialized[columnKey] = paths;
   }
 
-  return Object.keys(serialized).length === 0
-    ? ""
-    : JSON.stringify(serialized);
+  return Object.keys(serialized).length === 0 ? "" : JSON.stringify(serialized);
 }
 
 // ===== Column Scroll Position =====

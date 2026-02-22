@@ -6,6 +6,7 @@ import {
   COLUMN_ORDER_OPTION_KEY,
   COLUMN_TRANSPARENCY_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
+  PINNED_COLUMNS_OPTION_KEY,
 } from "./constants";
 
 export function getKanbanViewOptions() {
@@ -24,6 +25,14 @@ export function getKanbanViewOptions() {
       type: "text" as const,
       default: "",
       placeholder: "Managed by drag and drop",
+      shouldHide: () => true,
+    },
+    {
+      key: PINNED_COLUMNS_OPTION_KEY,
+      displayName: "Pinned columns",
+      type: "text" as const,
+      default: "",
+      placeholder: "Managed by pin button",
       shouldHide: () => true,
     },
     {
