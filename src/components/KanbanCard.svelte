@@ -64,7 +64,7 @@
     let isDraggable: boolean = $state(false);
     let rafId: number | null = null;
     let propertyEditorEl: HTMLElement | null = $state(null);
-    let propertyInputEl: HTMLInputElement | null = $state(null);
+    let propertyInputEl: HTMLElement | null = $state(null);
     let editingPropertyId: BasesPropertyId | null = $state(null);
     let editingMode: PropertyEditorMode | null = $state(null);
     let editingValues: string[] = $state([]);
@@ -180,6 +180,45 @@
         }
 
         return cssVars.join("; ");
+    }
+
+    function getPrettyTagPillStyle(
+        value: string,
+        isTagProperty: boolean,
+    ): string | undefined {
+        if (!isTagProperty || typeof window === "undefined") {
+            return undefined;
+        }
+
+        const prettyApi = (window as WindowWithPrettyPropertiesApi)
+            .PrettyPropertiesApi;
+        if (prettyApi === undefined) {
+            return undefined;
+        }
+
+        const normalizedTagValue = normalizeTagValue(value);
+        const background = prettyApi.getPropertyBackgroundColorValue(
+            "tags",
+            normalizedTagValue,
+        );
+        const text = prettyApi.getPropertyTextColorValue(
+            "tags",
+            normalizedTagValue,
+        );
+
+        const styles: string[] = [];
+        if (background !== "") {
+            styles.push(`background: ${background}`);
+        }
+        if (text !== "") {
+            styles.push(`color: ${text}`);
+        }
+
+        if (styles.length === 0) {
+            return undefined;
+        }
+
+        return styles.join("; ");
     }
 
     function setXIcon(node: HTMLElement): { destroy: () => void } {
@@ -395,7 +434,7 @@
         }
     }
 
-    function handleRemoveValue(evt: MouseEvent, index: number): void {
+    function handleRemoveValue(evt: MouseEvent | KeyboardEvent, index: number): void {
         evt.preventDefault();
         evt.stopPropagation();
         removeValue(index);
@@ -657,50 +696,61 @@
                             <!-- svelte-ignore a11y_no_static_element_interactions -->
                             <div
                                 bind:this={propertyEditorEl}
-                                class="bases-kanban-property-editor"
+                                class="multi-select-container"
+                                tabindex="-1"
                                 onclick={handlePropertyEditorClick}
                             >
                                 {#each editingValues as value, valueIndex (`${value}-${valueIndex}`)}
-                                    {@const chipClass = isTagProperty
-                                        ? "bases-kanban-property-value bases-kanban-property-tag bases-kanban-property-chip"
-                                        : "bases-kanban-property-value bases-kanban-property-chip"}
-                                    <span
-                                        class={chipClass}
-                                        style={getPrettyTagStyleVars(
+                                    {@const pillClass = isTagProperty
+                                        ? "multi-select-pill theme-color"
+                                        : "multi-select-pill"}
+                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                    <div
+                                        class={pillClass}
+                                        tabindex="0"
+                                        data-tag-value={value}
+                                        style={getPrettyTagPillStyle(
                                             value,
                                             isTagProperty,
                                         )}
                                     >
-                                        <span>{value}</span>
-                                        <button
-                                            type="button"
-                                            class="bases-kanban-property-remove"
-                                            aria-label="Remove value"
+                                        <div class="multi-select-pill-content">
+                                            <span>{value}</span>
+                                        </div>
+                                        <div
+                                            class="multi-select-pill-remove-button"
+                                            role="button"
+                                            tabindex="0"
                                             onclick={(evt: MouseEvent) =>
                                                 handleRemoveValue(
                                                     evt,
                                                     valueIndex,
                                                 )}
+                                            onkeydown={(evt: KeyboardEvent) => {
+                                                if (evt.key === "Enter" || evt.key === " ") {
+                                                    evt.preventDefault();
+                                                    handleRemoveValue(evt, valueIndex);
+                                                }
+                                            }}
                                         >
-                                            <span
-                                                class="bases-kanban-property-remove-icon"
-                                                use:setXIcon
-                                            ></span>
-                                        </button>
-                                    </span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                                        </div>
+                                    </div>
                                 {/each}
-                                <input
+                                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                                <div
                                     bind:this={propertyInputEl}
-                                    class="bases-kanban-property-input"
-                                    type="text"
-                                    value={editInput}
-                                    placeholder="Add value"
+                                    class="multi-select-input"
+                                    contenteditable="true"
+                                    tabindex="0"
+                                    autocapitalize="none"
+                                    data-placeholder="Add value"
                                     oninput={(evt: Event) => {
                                         const target = evt.target;
                                         if (
-                                            target instanceof HTMLInputElement
+                                            target instanceof HTMLElement
                                         ) {
-                                            editInput = target.value;
+                                            editInput = target.textContent ?? "";
                                             closeSuggestWhenEmpty();
                                         }
                                     }}
@@ -709,7 +759,7 @@
                                         refreshSuggestions();
                                     }}
                                     onclick={handlePropertyEditorClick}
-                                />
+                                ></div>
                             </div>
                         {:else}
                             {#each values as value, i (i)}

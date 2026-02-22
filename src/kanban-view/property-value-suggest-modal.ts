@@ -2,7 +2,7 @@ import { AbstractInputSuggest, App } from "obsidian";
 
 type PropertyValueEditorSuggestArgs = {
   app: App;
-  inputEl: HTMLInputElement;
+  inputEl: HTMLElement;
   getItems: (query: string) => string[];
   onChoose: (value: string) => void;
 };
@@ -12,7 +12,7 @@ export class PropertyValueEditorSuggest extends AbstractInputSuggest<string> {
   private readonly onChoose: (value: string) => void;
 
   constructor(args: PropertyValueEditorSuggestArgs) {
-    super(args.app, args.inputEl);
+    super(args.app, args.inputEl as HTMLInputElement);
     this.getItems = args.getItems;
     this.onChoose = args.onChoose;
   }
