@@ -184,6 +184,7 @@ src/
 - Update local order state before mutating files (optimistic UI)
 - Use data-driven operations instead of DOM queries for card order
 - In `reorderPathsForDrop`, when `targetPath` is `null`, treat `placement: "before"` as insertion at index `0` (top of column) and `"after"` as append
+- For card-container `ondragover`, compute insertion from cursor Y against each card midpoint (first midpoint above cursor => before that card; otherwise after last card) to avoid stale edge/gap targets
 
 ### Debug Logging
 

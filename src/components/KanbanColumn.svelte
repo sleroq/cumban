@@ -171,6 +171,37 @@
         onSetCardDropTarget(null, null, null);
         onCardDrop(firstCardPath, groupKey, "before");
     }
+
+    function getCardInsertionTarget(mouseY: number): {
+        targetPath: string | null;
+        placement: "before" | "after";
+    } {
+        if (cardsEl === null) {
+            return { targetPath: null, placement: "after" };
+        }
+
+        const cards = cardsEl.querySelectorAll(".bases-kanban-card");
+        if (cards.length === 0) {
+            return { targetPath: null, placement: "after" };
+        }
+
+        for (const card of Array.from(cards)) {
+            const rect = card.getBoundingClientRect();
+            const cardMiddle = rect.top + rect.height / 2;
+            if (mouseY < cardMiddle) {
+                return {
+                    targetPath: card.getAttribute("data-card-path"),
+                    placement: "before",
+                };
+            }
+        }
+
+        const lastCard = cards.item(cards.length - 1);
+        return {
+            targetPath: lastCard?.getAttribute("data-card-path") ?? null,
+            placement: "after",
+        };
+    }
 </script>
 
 <div
@@ -304,46 +335,14 @@
                 return;
             }
 
-            // Find the card closest to the cursor Y position
-            const cards = cardsEl.querySelectorAll(".bases-kanban-card");
-            if (cards.length === 0) {
-                // Empty column - let the container drop handler handle this
+            const { targetPath, placement } = getCardInsertionTarget(
+                evt.clientY,
+            );
+            if (targetPath === null) {
                 onSetCardDropTarget(null, null, null);
                 return;
             }
-
-            let closestCard: Element | null = null;
-            let closestDistance = Infinity;
-            let placement: "before" | "after" = "after";
-
-            for (const card of Array.from(cards)) {
-                const rect = card.getBoundingClientRect();
-                const cardTop = rect.top;
-                const cardBottom = rect.bottom;
-                const cardMiddle = cardTop + rect.height / 2;
-                const mouseY = evt.clientY;
-
-                // Check if mouse is within the card's vertical range (with some tolerance)
-                const tolerance = 10; // pixels of tolerance for edge detection
-                if (
-                    mouseY >= cardTop - tolerance &&
-                    mouseY <= cardBottom + tolerance
-                ) {
-                    const distance = Math.abs(mouseY - cardMiddle);
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestCard = card;
-                        placement = mouseY < cardMiddle ? "before" : "after";
-                    }
-                }
-            }
-
-            if (closestCard !== null) {
-                const cardPath = closestCard.getAttribute("data-card-path");
-                if (cardPath !== null) {
-                    onSetCardDropTarget(cardPath, columnKey, placement);
-                }
-            }
+            onSetCardDropTarget(targetPath, columnKey, placement);
         }}
         ondrop={(evt) => {
             evt.preventDefault();
@@ -359,10 +358,12 @@
                 // Drop was on a card element - let the card's drop handler handle this
                 return;
             }
-            const placement = dragState.getCardPlacement() ?? "after";
+            const { targetPath, placement } = getCardInsertionTarget(
+                evt.clientY,
+            );
             // Empty space drop - clear any stale card target and use column's group key
             onSetCardDropTarget(null, null, null);
-            onCardDrop(null, groupKey, placement);
+            onCardDrop(targetPath, groupKey, placement);
         }}
         onscroll={() => {
             if (cardsEl === null) return;

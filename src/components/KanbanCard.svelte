@@ -184,7 +184,12 @@
             cancelAnimationFrame(rafId);
             rafId = null;
         }
-        const placement = dragState.getCardDropPlacement(filePath) ?? "after";
+        let placement = dragState.getCardDropPlacement(filePath) ?? "after";
+        if (cardEl !== null) {
+            const rect = cardEl.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            placement = evt.clientY < midY ? "before" : "after";
+        }
         onDrop(filePath, groupKey, placement);
     }
 
