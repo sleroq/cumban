@@ -178,7 +178,8 @@ src/
 
 ### Drag and Drop
 
-- Use `createCardDragState()` for per-column drag state management
+- Use `createKanbanDragState()` as the single source of truth for both card and column DnD state
+- Prefer selector-store helpers from drag state (`cardDropTargetStore`, `columnSourceStore`, etc.) instead of creating ad-hoc `derived(...)` selectors in components
 - Update local order state before mutating files (optimistic UI)
 - Use data-driven operations instead of DOM queries for card order
 
