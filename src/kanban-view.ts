@@ -489,11 +489,8 @@ export class KanbanView extends BasesView {
 
         const confirmButton = buttonContainer.createEl("button", {
           text: this.plugin.settings.trashConfirmButtonText,
-          cls: "mod-cta",
+          cls: "mod-cta bases-kanban-trash-confirm-button",
         });
-        confirmButton.style.backgroundColor =
-          "var(--background-modifier-error)";
-        confirmButton.style.color = "var(--text-on-accent)";
         confirmButton.addEventListener("click", () => {
           resolve(true);
           modal.close();

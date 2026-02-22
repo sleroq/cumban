@@ -94,8 +94,6 @@ export class KanbanSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "Bases Kanban Settings" });
-
     // Display & Labels Section
     new Setting(containerEl).setName("Display").setHeading();
 

@@ -273,3 +273,8 @@
 	margin-right: 3px;
 	margin-bottom: 2px;
 }
+
+.bases-kanban-trash-confirm-button {
+	background-color: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
