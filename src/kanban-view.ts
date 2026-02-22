@@ -83,6 +83,7 @@ import {
   createKanbanViewModel,
   type KanbanViewModel,
 } from "./kanban-view/view-model";
+import type { KanbanCallbacks } from "./kanban-view/actions";
 
 export class KanbanView extends BasesView {
   type = "kanban";
@@ -258,6 +259,46 @@ export class KanbanView extends BasesView {
     this.viewModel.setColumnScrollByKey(columnScrollByKey);
     this.viewModel.setPinnedColumns(new Set(this.getPinnedColumnsFromConfig()));
 
+    const callbacks: KanbanCallbacks = {
+      card: {
+        select: (filePath: string, extendSelection: boolean) =>
+          this.selectCard(filePath, extendSelection),
+        dragStart: (filePath: string, cardIndex: number) =>
+          this.startCardDrag(filePath, cardIndex),
+        dragEnd: () => this.endCardDrag(),
+        drop: (
+          sourcePath: string | null,
+          filePath: string | null,
+          grpKey: unknown,
+          placement: "before" | "after",
+        ) => this.handleCardDrop(sourcePath, filePath, grpKey, placement),
+        contextMenu: (evt: MouseEvent, entry: BasesEntry) =>
+          this.showCardContextMenu(evt, entry.file),
+        linkClick: (evt: MouseEvent, target: string) =>
+          this.handleCardLinkClick(evt, target),
+      },
+      column: {
+        createCard: (grpByProperty: BasesPropertyId | null, grpKey: unknown) =>
+          void this.createCardForColumn(grpByProperty, grpKey),
+        startDrag: (columnKey: string) => this.startColumnDrag(columnKey),
+        endDrag: () => this.endColumnDrag(),
+        drop: (
+          sourceKey: string | null,
+          targetKey: string,
+          placement: "before" | "after",
+        ) => this.handleColumnDrop(sourceKey, targetKey, placement),
+        togglePin: (columnKey: string) => this.toggleColumnPin(columnKey),
+        cardsScroll: (columnKey: string, scrollTop: number) =>
+          this.handleColumnScroll(columnKey, scrollTop),
+      },
+      board: {
+        scroll: (scrollLeft: number, scrollTop: number) =>
+          this.debouncedSaveBoardScrollPosition(scrollLeft, scrollTop),
+        keyDown: (evt: KeyboardEvent) => this.handleKeyDown(evt),
+        click: () => this.clearSelection(),
+      },
+    };
+
     // Mount Svelte app once
     this.svelteApp = mount(KanbanRoot, {
       target: this.rootEl,
@@ -291,41 +332,7 @@ export class KanbanView extends BasesView {
         selectedPropertiesStore: this.viewModel.selectedPropertiesStore,
         columnScrollByKeyStore: this.viewModel.columnScrollByKeyStore,
         pinnedColumnsStore: this.viewModel.pinnedColumnsStore,
-        // Callbacks
-        onCreateCard: (
-          grpByProperty: BasesPropertyId | null,
-          grpKey: unknown,
-        ) => this.createCardForColumn(grpByProperty, grpKey),
-        onCardSelect: (filePath: string, extendSelection: boolean) =>
-          this.selectCard(filePath, extendSelection),
-        onCardDragStart: (filePath: string, cardIndex: number) =>
-          this.startCardDrag(filePath, cardIndex),
-        onCardDragEnd: () => this.endCardDrag(),
-        onCardDrop: (
-          sourcePath: string | null,
-          filePath: string | null,
-          grpKey: unknown,
-          placement: "before" | "after",
-        ) => this.handleCardDrop(sourcePath, filePath, grpKey, placement),
-        onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) =>
-          this.showCardContextMenu(evt, entry.file),
-        onCardLinkClick: (evt: MouseEvent, target: string) =>
-          this.handleCardLinkClick(evt, target),
-        onCardsScroll: (columnKey: string, scrollTop: number) =>
-          this.handleColumnScroll(columnKey, scrollTop),
-        onBoardScroll: (scrollLeft: number, scrollTop: number) =>
-          this.debouncedSaveBoardScrollPosition(scrollLeft, scrollTop),
-        onBoardKeyDown: (evt: KeyboardEvent) => this.handleKeyDown(evt),
-        onBoardClick: () => this.clearSelection(),
-        onStartColumnDrag: (columnKey: string) =>
-          this.startColumnDrag(columnKey),
-        onEndColumnDrag: () => this.endColumnDrag(),
-        onColumnDrop: (
-          sourceKey: string | null,
-          targetKey: string,
-          placement: "before" | "after",
-        ) => this.handleColumnDrop(sourceKey, targetKey, placement),
-        onTogglePin: (columnKey: string) => this.toggleColumnPin(columnKey),
+        callbacks,
       },
     });
   }

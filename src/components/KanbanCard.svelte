@@ -6,19 +6,18 @@
         parseWikiLinks,
         getHashColor,
     } from "../kanban-view/utils";
-    import type { KanbanDragState } from "../kanban-view/drag-state";
+    import {
+        KANBAN_BOARD_CONTEXT_KEY,
+        type KanbanBoardContext,
+    } from "../kanban-view/board-context";
     import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
     import type { KanbanContext } from "../kanban-view/context";
 
-    interface Props {
+    type Props = {
         entry: BasesEntry;
         columnKey: string;
         groupKey: unknown;
         cardIndex: number;
-        groupByProperty: BasesPropertyId | null;
-        selectedProperties: BasesPropertyId[];
-        dragState: KanbanDragState;
-        onSelect: (filePath: string, extendSelection: boolean) => void;
         onDragStart: (
             evt: DragEvent,
             filePath: string,
@@ -35,35 +34,34 @@
             groupKey: unknown,
             placement: "before" | "after",
         ) => void;
-        onContextMenu: (evt: MouseEvent) => void;
-        onLinkClick: (evt: MouseEvent, target: string) => void;
-    }
+    };
 
     let {
         entry,
         columnKey,
         groupKey,
         cardIndex,
-        groupByProperty,
-        selectedProperties,
-        dragState,
-        onSelect,
         onDragStart,
         onDragEnd,
         onSetDropTarget,
         onDrop,
-        onContextMenu,
-        onLinkClick,
     }: Props = $props();
 
     // Get settings and selection store from context
     const { settingsStore, selectedPathsStore } =
         getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+    const boardContext = getContext<KanbanBoardContext>(
+        KANBAN_BOARD_CONTEXT_KEY,
+    );
     const settings = $derived($settingsStore);
+    const groupByProperty = $derived(boardContext.groupByProperty);
+    const selectedProperties = $derived(boardContext.selectedProperties);
+    const callbacks = $derived(boardContext.callbacks);
+    const dragState = boardContext.dragState;
 
     let cardEl: HTMLElement | null = $state(null);
     let isDraggable: boolean = $state(false);
-    let rafId: number | null = $state(null);
+    let rafId: number | null = null;
 
     const filePath = $derived(entry.file.path);
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
@@ -114,7 +112,7 @@
         if ((evt.target as HTMLElement).closest("a") !== null) {
             return;
         }
-        onSelect(filePath, evt.shiftKey || evt.metaKey);
+        callbacks.card.select(filePath, evt.shiftKey || evt.metaKey);
     }
 
     function handleMouseDown(evt: MouseEvent): void {
@@ -194,23 +192,23 @@
         evt.preventDefault();
         evt.stopPropagation();
         evt.stopImmediatePropagation();
-        onContextMenu(evt);
+        callbacks.card.contextMenu(evt, entry);
     }
 
     function handleLinkClick(evt: MouseEvent): void {
         evt.preventDefault();
         evt.stopPropagation();
-        onLinkClick(evt, filePath);
+        callbacks.card.linkClick(evt, filePath);
     }
 
     function handleTitleContextMenu(evt: MouseEvent): void {
-        onContextMenu(evt);
+        callbacks.card.contextMenu(evt, entry);
     }
 
     function handlePropertyLinkClick(evt: MouseEvent, target: string): void {
         evt.preventDefault();
         evt.stopPropagation();
-        onLinkClick(evt, target);
+        callbacks.card.linkClick(evt, target);
     }
 
     function handleKeyDown(evt: KeyboardEvent): void {
@@ -218,7 +216,7 @@
             return;
         }
         evt.preventDefault();
-        onSelect(filePath, evt.shiftKey || evt.metaKey);
+        callbacks.card.select(filePath, evt.shiftKey || evt.metaKey);
     }
 </script>
 

@@ -12,9 +12,10 @@
     import KanbanBackground from "./KanbanBackground.svelte";
     import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
     import type { KanbanContext } from "../kanban-view/context";
+    import type { KanbanCallbacks } from "../kanban-view/actions";
     import { DEFAULT_SETTINGS, type BasesKanbanSettings } from "../settings";
 
-    interface Props {
+    type Props = {
         app: App;
         rootEl: HTMLElement;
         selectedPathsStore: Readable<Set<string>>;
@@ -34,34 +35,8 @@
         selectedPropertiesStore: Readable<BasesPropertyId[]>;
         columnScrollByKeyStore: Readable<Record<string, number>>;
         pinnedColumnsStore: Readable<Set<string>>;
-        onCreateCard: (
-            groupByProperty: BasesPropertyId | null,
-            groupKey: unknown,
-        ) => void;
-        onCardSelect: (filePath: string, extendSelection: boolean) => void;
-        onCardDragStart: (filePath: string, cardIndex: number) => void;
-        onCardDragEnd: () => void;
-        onCardDrop: (
-            sourcePath: string | null,
-            filePath: string | null,
-            groupKey: unknown,
-            placement: "before" | "after",
-        ) => void;
-        onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
-        onCardLinkClick: (evt: MouseEvent, target: string) => void;
-        onCardsScroll: (columnKey: string, scrollTop: number) => void;
-        onBoardScroll: (scrollLeft: number, scrollTop: number) => void;
-        onBoardKeyDown: (evt: KeyboardEvent) => void;
-        onBoardClick: () => void;
-        onStartColumnDrag: (columnKey: string) => void;
-        onEndColumnDrag: () => void;
-        onColumnDrop: (
-            sourceKey: string | null,
-            targetKey: string,
-            placement: "before" | "after",
-        ) => void;
-        onTogglePin: (columnKey: string) => void;
-    }
+        callbacks: KanbanCallbacks;
+    };
 
     let {
         app,
@@ -80,21 +55,7 @@
         selectedPropertiesStore,
         columnScrollByKeyStore,
         pinnedColumnsStore,
-        onCreateCard,
-        onCardSelect,
-        onCardDragStart,
-        onCardDragEnd,
-        onCardDrop,
-        onCardContextMenu,
-        onCardLinkClick,
-        onCardsScroll,
-        onBoardScroll,
-        onBoardKeyDown,
-        onBoardClick,
-        onStartColumnDrag,
-        onEndColumnDrag,
-        onColumnDrop,
-        onTogglePin,
+        callbacks,
     }: Props = $props();
 
     const settingsStore = writable(DEFAULT_SETTINGS);
@@ -144,19 +105,5 @@
     {initialBoardScrollTop}
     {columnScrollByKey}
     {pinnedColumns}
-    {onCreateCard}
-    {onCardSelect}
-    {onCardDragStart}
-    {onCardDragEnd}
-    {onCardDrop}
-    {onCardContextMenu}
-    {onCardLinkClick}
-    {onCardsScroll}
-    {onBoardScroll}
-    {onBoardKeyDown}
-    {onBoardClick}
-    {onStartColumnDrag}
-    {onEndColumnDrag}
-    {onColumnDrop}
-    {onTogglePin}
+    {callbacks}
 />

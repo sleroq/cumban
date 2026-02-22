@@ -4,12 +4,18 @@
         BasesPropertyId,
         BasesEntryGroup,
     } from "obsidian";
+    import { setContext } from "svelte";
     import { onMount } from "svelte";
     import KanbanColumn from "./KanbanColumn.svelte";
 
+    import type { KanbanCallbacks } from "../kanban-view/actions";
+    import {
+        KANBAN_BOARD_CONTEXT_KEY,
+        type KanbanBoardContext,
+    } from "../kanban-view/board-context";
     import { createKanbanDragState } from "../kanban-view/drag-state";
 
-    interface Props {
+    type Props = {
         groups: Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>;
         groupByProperty: BasesPropertyId | null;
         selectedProperties: BasesPropertyId[];
@@ -17,34 +23,8 @@
         initialBoardScrollTop: number;
         columnScrollByKey: Record<string, number>;
         pinnedColumns: Set<string>;
-        onCreateCard: (
-            groupByProperty: BasesPropertyId | null,
-            groupKey: unknown,
-        ) => void;
-        onCardSelect: (filePath: string, extendSelection: boolean) => void;
-        onCardDragStart: (filePath: string, cardIndex: number) => void;
-        onCardDragEnd: () => void;
-        onCardDrop: (
-            sourcePath: string | null,
-            filePath: string | null,
-            groupKey: unknown,
-            placement: "before" | "after",
-        ) => void;
-        onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
-        onCardLinkClick: (evt: MouseEvent, target: string) => void;
-        onCardsScroll: (columnKey: string, scrollTop: number) => void;
-        onBoardScroll: (scrollLeft: number, scrollTop: number) => void;
-        onBoardKeyDown: (evt: KeyboardEvent) => void;
-        onBoardClick: () => void;
-        onStartColumnDrag: (columnKey: string) => void;
-        onEndColumnDrag: () => void;
-        onColumnDrop: (
-            sourceKey: string | null,
-            targetKey: string,
-            placement: "before" | "after",
-        ) => void;
-        onTogglePin: (columnKey: string) => void;
-    }
+        callbacks: KanbanCallbacks;
+    };
 
     let {
         groups,
@@ -54,21 +34,7 @@
         initialBoardScrollTop,
         columnScrollByKey,
         pinnedColumns,
-        onCreateCard,
-        onCardSelect,
-        onCardDragStart,
-        onCardDragEnd,
-        onCardDrop,
-        onCardContextMenu,
-        onCardLinkClick,
-        onCardsScroll,
-        onBoardScroll,
-        onBoardKeyDown,
-        onBoardClick,
-        onStartColumnDrag,
-        onEndColumnDrag,
-        onColumnDrop,
-        onTogglePin,
+        callbacks,
     }: Props = $props();
 
     let boardEl: HTMLElement | null = $state(null);
@@ -77,6 +43,22 @@
     const dragState = createKanbanDragState();
     const columnSourceKeyStore = $derived(dragState.columnSourceKey);
     const cardSourcePathStore = $derived(dragState.cardSourcePath);
+
+    const boardContextValue: KanbanBoardContext = $state({
+        get groupByProperty() {
+            return groupByProperty;
+        },
+        get selectedProperties() {
+            return selectedProperties;
+        },
+        get dragState() {
+            return dragState;
+        },
+        get callbacks() {
+            return callbacks;
+        },
+    });
+    setContext(KANBAN_BOARD_CONTEXT_KEY, boardContextValue);
 
     function getColumnKey(groupKey: unknown): string {
         if (groupKey === undefined || groupKey === null) {
@@ -87,7 +69,7 @@
 
     function handleBoardScroll(): void {
         if (boardEl === null) return;
-        onBoardScroll(boardEl.scrollLeft, boardEl.scrollTop);
+        callbacks.board.scroll(boardEl.scrollLeft, boardEl.scrollTop);
     }
 
     function handleBoardClick(evt: MouseEvent): void {
@@ -96,18 +78,18 @@
         ) {
             return;
         }
-        onBoardClick();
+        callbacks.board.click();
     }
 
     // Wrapper functions that include drag state
     function handleStartColumnDrag(evt: DragEvent, columnKey: string): void {
         dragState.startColumnDrag(columnKey, evt.dataTransfer);
-        onStartColumnDrag(columnKey);
+        callbacks.column.startDrag(columnKey);
     }
 
     function handleEndColumnDrag(): void {
         dragState.endDrag();
-        onEndColumnDrag();
+        callbacks.column.endDrag();
     }
 
     function handleSetColumnDropTarget(
@@ -123,7 +105,7 @@
     ): void {
         const sourceColumnKey = $columnSourceKeyStore;
         dragState.clearDropTarget();
-        onColumnDrop(sourceColumnKey, targetKey, placement);
+        callbacks.column.drop(sourceColumnKey, targetKey, placement);
     }
 
     function handleStartCardDrag(
@@ -132,12 +114,12 @@
         cardIndex: number,
     ): void {
         dragState.startCardDrag(filePath, evt.dataTransfer);
-        onCardDragStart(filePath, cardIndex);
+        callbacks.card.dragStart(filePath, cardIndex);
     }
 
     function handleEndCardDrag(): void {
         dragState.endDrag();
-        onCardDragEnd();
+        callbacks.card.dragEnd();
     }
 
     function handleSetCardDropTarget(
@@ -153,7 +135,7 @@
         groupKey: unknown,
         placement: "before" | "after",
     ): void {
-        onCardDrop($cardSourcePathStore, filePath, groupKey, placement);
+        callbacks.card.drop($cardSourcePathStore, filePath, groupKey, placement);
     }
 
     const startCardIndexes = $derived.by(() => {
@@ -188,7 +170,7 @@
     class="bases-kanban-board"
     data-keyboard-bound="true"
     tabindex="0"
-    onkeydown={onBoardKeyDown}
+    onkeydown={callbacks.board.keyDown}
     onclick={handleBoardClick}
     role="application"
 >
@@ -204,24 +186,15 @@
             entries={groupEntries}
             startCardIndex={startIndex}
             initialScrollTop={columnScrollByKey[columnKey] ?? 0}
-            {groupByProperty}
-            {selectedProperties}
-            {dragState}
             {isPinned}
             onStartColumnDrag={handleStartColumnDrag}
             onEndColumnDrag={handleEndColumnDrag}
             onSetColumnDropTarget={handleSetColumnDropTarget}
             onColumnDrop={handleColumnDrop}
-            onCreateCard={() => onCreateCard(groupByProperty, group.key)}
-            {onCardSelect}
-            onCardDragStart={handleStartCardDrag}
-            onCardDragEnd={handleEndCardDrag}
+            onStartCardDrag={handleStartCardDrag}
+            onEndCardDrag={handleEndCardDrag}
             onSetCardDropTarget={handleSetCardDropTarget}
             onCardDrop={handleCardDrop}
-            {onCardContextMenu}
-            {onCardLinkClick}
-            onCardsScroll={(scrollTop) => onCardsScroll(columnKey, scrollTop)}
-            onTogglePin={() => onTogglePin(columnKey)}
         />
     {/each}
 </div>

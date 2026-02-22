@@ -1,22 +1,22 @@
 <script lang="ts">
     import { getContext } from "svelte";
-    import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
+    import { setIcon, type BasesEntry } from "obsidian";
     import { onDestroy, onMount } from "svelte";
     import KanbanCard from "./KanbanCard.svelte";
     import { getColumnName } from "../kanban-view/utils";
-    import type { KanbanDragState } from "../kanban-view/drag-state";
+    import {
+        KANBAN_BOARD_CONTEXT_KEY,
+        type KanbanBoardContext,
+    } from "../kanban-view/board-context";
     import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
     import type { KanbanContext } from "../kanban-view/context";
 
-    interface Props {
+    type Props = {
         columnKey: string;
         groupKey: unknown;
         entries: BasesEntry[];
         startCardIndex: number;
         initialScrollTop: number;
-        groupByProperty: BasesPropertyId | null;
-        selectedProperties: BasesPropertyId[];
-        dragState: KanbanDragState;
         isPinned: boolean;
         onStartColumnDrag: (evt: DragEvent, columnKey: string) => void;
         onEndColumnDrag: () => void;
@@ -28,14 +28,12 @@
             targetKey: string,
             placement: "before" | "after",
         ) => void;
-        onCreateCard: () => void;
-        onCardSelect: (filePath: string, extendSelection: boolean) => void;
-        onCardDragStart: (
+        onStartCardDrag: (
             evt: DragEvent,
             filePath: string,
             cardIndex: number,
         ) => void;
-        onCardDragEnd: () => void;
+        onEndCardDrag: () => void;
         onSetCardDropTarget: (
             targetPath: string | null,
             targetColumnKey: string | null,
@@ -46,11 +44,7 @@
             groupKey: unknown,
             placement: "before" | "after",
         ) => void;
-        onCardContextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
-        onCardLinkClick: (evt: MouseEvent, target: string) => void;
-        onCardsScroll: (scrollTop: number) => void;
-        onTogglePin: () => void;
-    }
+    };
 
     let {
         columnKey,
@@ -58,29 +52,27 @@
         entries,
         startCardIndex,
         initialScrollTop,
-        groupByProperty,
-        selectedProperties,
-        dragState,
         isPinned,
         onStartColumnDrag,
         onEndColumnDrag,
         onSetColumnDropTarget,
         onColumnDrop,
-        onCreateCard,
-        onCardSelect,
-        onCardDragStart,
-        onCardDragEnd,
+        onStartCardDrag,
+        onEndCardDrag,
         onSetCardDropTarget,
         onCardDrop,
-        onCardContextMenu,
-        onCardLinkClick,
-        onCardsScroll,
-        onTogglePin,
     }: Props = $props();
 
     // Get settings from context
     const { settingsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+    const boardContext = getContext<KanbanBoardContext>(
+        KANBAN_BOARD_CONTEXT_KEY,
+    );
     const settings = $derived($settingsStore);
+    const groupByProperty = $derived(boardContext.groupByProperty);
+    const selectedProperties = $derived(boardContext.selectedProperties);
+    const callbacks = $derived(boardContext.callbacks);
+    const dragState = boardContext.dragState;
 
     let columnEl: HTMLElement | null = $state(null);
     let cardsEl: HTMLElement | null = $state(null);
@@ -123,16 +115,22 @@
     });
 
     // Action to set the pin icon based on pinned state
-    function setPinIcon(node: HTMLElement): { destroy: () => void } {
-        function updateIcon(): void {
+    function setPinIcon(
+        node: HTMLElement,
+        pinned: boolean,
+    ): { update: (nextPinned: boolean) => void; destroy: () => void } {
+        function updateIcon(nextPinned: boolean): void {
             node.empty();
-            setIcon(node, isPinned ? "pin-off" : "pin");
+            setIcon(node, nextPinned ? "pin-off" : "pin");
         }
 
-        updateIcon();
+        updateIcon(pinned);
 
         // Return minimal cleanup - Obsidian handles icon lifecycle
         return {
+            update(nextPinned: boolean) {
+                updateIcon(nextPinned);
+            },
             destroy() {
                 // No cleanup needed
             },
@@ -229,7 +227,7 @@
             onclick={(evt) => {
                 evt.preventDefault();
                 evt.stopPropagation();
-                onCreateCard();
+                callbacks.column.createCard(groupByProperty, groupKey);
             }}
         >
             {settings.addCardButtonText}
@@ -243,9 +241,9 @@
             onclick={(evt) => {
                 evt.preventDefault();
                 evt.stopPropagation();
-                onTogglePin();
+                callbacks.column.togglePin(columnKey);
             }}
-            use:setPinIcon
+            use:setPinIcon={isPinned}
         >
         </button>
     </div>
@@ -335,7 +333,7 @@
                 clearTimeout(scrollTimeout);
             }
             scrollTimeout = setTimeout(() => {
-                onCardsScroll(cardsEl!.scrollTop);
+                callbacks.column.cardsScroll(columnKey, cardsEl!.scrollTop);
             }, 100);
         }}
         role="list"
@@ -348,16 +346,10 @@
                 {columnKey}
                 {groupKey}
                 {cardIndex}
-                {groupByProperty}
-                {selectedProperties}
-                {dragState}
-                onSelect={onCardSelect}
-                onDragStart={onCardDragStart}
-                onDragEnd={onCardDragEnd}
+                onDragStart={onStartCardDrag}
+                onDragEnd={onEndCardDrag}
                 onSetDropTarget={onSetCardDropTarget}
                 onDrop={onCardDrop}
-                onContextMenu={(evt) => onCardContextMenu(evt, entry)}
-                onLinkClick={onCardLinkClick}
             />
         {/each}
     </div>
