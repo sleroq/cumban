@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   tagAlpha: 0.5,
   columnWidth: 280,
   dropIndicatorWidth: 3,
-  tagTextColor: "rgba(0, 0, 0, 0.6)",
+  tagTextColor: "#000000",
 
   // Background (global defaults)
   backgroundBrightness: 100,
@@ -379,11 +379,10 @@ export class KanbanSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Text color")
-      .setDesc("CSS color value for tag text")
-      .addText((text) =>
-        text
-          .setPlaceholder("rgba(0, 0, 0, 0.6)")
-          .setValue(this.plugin.settings.tagTextColor)
+      .setDesc("Color for tag text")
+      .addColorPicker((color) =>
+        color
+          .setValue(this.getHexColorValue(this.plugin.settings.tagTextColor))
           .onChange(async (value) => {
             this.plugin.settings.tagTextColor =
               value || DEFAULT_SETTINGS.tagTextColor;
@@ -449,5 +448,30 @@ export class KanbanSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
       );
+  }
+
+  private getHexColorValue(color: string): string {
+    if (/^#[0-9a-fA-F]{6}$/.test(color)) {
+      return color;
+    }
+
+    const temp = document.createElement("div");
+    temp.style.color = color;
+
+    if (temp.style.color === "") {
+      return DEFAULT_SETTINGS.tagTextColor;
+    }
+
+    document.body.appendChild(temp);
+    const computedColor = getComputedStyle(temp).color;
+    document.body.removeChild(temp);
+
+    const matches = computedColor.match(/\d+/g);
+    if (matches === null || matches.length < 3) {
+      return DEFAULT_SETTINGS.tagTextColor;
+    }
+
+    const [r, g, b] = matches.slice(0, 3).map(Number);
+    return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
   }
 }
