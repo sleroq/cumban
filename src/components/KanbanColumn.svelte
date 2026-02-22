@@ -289,19 +289,6 @@
         <span class="bases-kanban-column-count">{entries.length}</span>
         <button
             type="button"
-            class="bases-kanban-add-card-button"
-            draggable="false"
-            onmousedown={(evt) => evt.stopPropagation()}
-            onclick={(evt) => {
-                evt.preventDefault();
-                evt.stopPropagation();
-                callbacks.column.createCard(groupByProperty, groupKey);
-            }}
-        >
-            {settings.addCardButtonText}
-        </button>
-        <button
-            type="button"
             class="bases-kanban-pin-button"
             draggable="false"
             aria-label={isPinned ? "Unpin column" : "Pin column"}
@@ -313,6 +300,19 @@
             }}
             use:setPinIcon={isPinned}
         >
+        </button>
+        <button
+            type="button"
+            class="bases-kanban-add-card-button"
+            draggable="false"
+            onmousedown={(evt) => evt.stopPropagation()}
+            onclick={(evt) => {
+                evt.preventDefault();
+                evt.stopPropagation();
+                callbacks.column.createCard(groupByProperty, groupKey);
+            }}
+        >
+            {settings.addCardButtonText}
         </button>
     </div>
 
