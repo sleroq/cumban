@@ -2,6 +2,7 @@
     import { onDestroy, onMount, getContext } from "svelte";
     import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
     import type { PropertyEditorMode } from "../kanban-view/actions";
+    import type { PropertyType } from "../kanban-view/actions";
     import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-popover";
     import {
         getPropertyValues,
@@ -730,6 +731,60 @@
         return null;
     }
 
+    function isDateType(type: PropertyType): boolean {
+        return type === "date" || type === "datetime" || type === "time";
+    }
+
+    function getRelativeDate(dateValue: string): "past" | "future" | "today" {
+        const date = new Date(dateValue);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const compareDate = new Date(date);
+        compareDate.setHours(0, 0, 0, 0);
+
+        if (compareDate.getTime() === today.getTime()) {
+            return "today";
+        }
+        return compareDate.getTime() < today.getTime() ? "past" : "future";
+    }
+
+    function formatDateValue(value: string, type: PropertyType): string {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) {
+            return value;
+        }
+
+        if (type === "date") {
+            return date.toLocaleDateString();
+        }
+        if (type === "datetime") {
+            return date.toLocaleString();
+        }
+        if (type === "time") {
+            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+        return value;
+    }
+
+    function getDailyNotePath(dateValue: string): string {
+        const date = new Date(dateValue);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}.md`;
+    }
+
+    function handleDateIconClick(evt: MouseEvent | KeyboardEvent, dateValue: string): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const dailyNotePath = getDailyNotePath(dateValue);
+        // Create a synthetic mouse event for the linkClick callback
+        const syntheticEvt = evt instanceof MouseEvent 
+            ? evt 
+            : new MouseEvent("click", { bubbles: true });
+        callbacks.card.linkClick(syntheticEvt, dailyNotePath);
+    }
+
     function handleKeyDown(evt: KeyboardEvent): void {
         if (evt.key !== "Enter" && evt.key !== " ") {
             return;
@@ -782,6 +837,9 @@
                 {@const values = getPropertyValues(entry.getValue(propertyId))}
                 {#if values !== null}
                     {@const mode = callbacks.card.getPropertyEditorMode(
+                        propertyId,
+                    )}
+                    {@const propertyType = callbacks.card.getPropertyType(
                         propertyId,
                     )}
                     {@const isTagProperty = propertyId.endsWith(
@@ -876,7 +934,33 @@
                                     settings.propertyValueMaxLength,
                                 )}
                                 {@const links = parseWikiLinks(value)}
-                                {#if links.length === 0}
+                                {@const isDateProp = isDateType(propertyType)}
+                                {#if isDateProp}
+                                    {@const relativeDate = getRelativeDate(value)}
+                                    {@const formattedDate = formatDateValue(value, propertyType)}
+                                    <div
+                                        class="bases-kanban-property-value metadata-property-value"
+                                        data-property-type="date"
+                                        data-relative-date={relativeDate}
+                                    >
+                                        <span class="metadata-date-value">{formattedDate}</span>
+                                        <div
+                                            class="clickable-icon"
+                                            role="button"
+                                            tabindex="0"
+                                            aria-label="Open daily note"
+                                            onclick={(evt: MouseEvent) => handleDateIconClick(evt, value)}
+                                            onkeydown={(evt: KeyboardEvent) => {
+                                                if (evt.key === "Enter" || evt.key === " ") {
+                                                    evt.preventDefault();
+                                                    handleDateIconClick(evt, value);
+                                                }
+                                            }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                        </div>
+                                    </div>
+                                {:else if links.length === 0}
                                     {@const externalLinkHref = isTagProperty
                                         ? null
                                         : getExternalLinkHref(value)}

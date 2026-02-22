@@ -2,6 +2,8 @@ import type { BasesEntry, BasesPropertyId } from "obsidian";
 
 export type PropertyEditorMode = "single" | "multi";
 
+export type PropertyType = "date" | "text" | "multitext" | "tags" | "select" | "checkbox" | "number" | "datetime" | "time" | "unknown";
+
 export type KanbanCardCallbacks = {
   select: (filePath: string, extendSelection: boolean) => void;
   dragStart: (filePath: string, cardIndex: number) => void;
@@ -15,6 +17,7 @@ export type KanbanCardCallbacks = {
   contextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
   linkClick: (evt: MouseEvent, target: string) => void;
   getPropertyEditorMode: (propertyId: BasesPropertyId) => PropertyEditorMode | null;
+  getPropertyType: (propertyId: BasesPropertyId) => PropertyType;
   getPropertySuggestions: (propertyId: BasesPropertyId) => string[];
   updatePropertyValues: (
     filePath: string,

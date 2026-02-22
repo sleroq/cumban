@@ -87,6 +87,7 @@ import {
 import type {
   KanbanCallbacks,
   PropertyEditorMode,
+  PropertyType,
 } from "./kanban-view/actions";
 
 type MetadataPropertyInfo = {
@@ -296,6 +297,8 @@ export class KanbanView extends BasesView {
           this.handleCardLinkClick(evt, target),
         getPropertyEditorMode: (propertyId: BasesPropertyId) =>
           this.getPropertyEditorMode(propertyId),
+        getPropertyType: (propertyId: BasesPropertyId) =>
+          this.getPropertyType(propertyId),
         getPropertySuggestions: (propertyId: BasesPropertyId) =>
           this.getPropertySuggestions(propertyId),
         updatePropertyValues: (
@@ -525,6 +528,50 @@ export class KanbanView extends BasesView {
     }
 
     return null;
+  }
+
+  private getPropertyType(propertyId: BasesPropertyId): PropertyType {
+    const propertyName = this.getNotePropertyName(propertyId);
+    if (propertyName === null) {
+      return "unknown";
+    }
+
+    const metadataTypeManager = (this.app as AppWithMetadataTypeManager)
+      .metadataTypeManager;
+    const propertyInfo = metadataTypeManager?.getPropertyInfo(
+      propertyName.toLowerCase(),
+    );
+    const widgetType = propertyInfo?.widget ?? propertyInfo?.type ?? "";
+
+    if (widgetType === "date") {
+      return "date";
+    }
+    if (widgetType === "datetime") {
+      return "datetime";
+    }
+    if (widgetType === "time") {
+      return "time";
+    }
+    if (widgetType === "multitext" || widgetType === "aliases") {
+      return "multitext";
+    }
+    if (widgetType === "tags") {
+      return "tags";
+    }
+    if (widgetType === "checkbox") {
+      return "checkbox";
+    }
+    if (widgetType === "number") {
+      return "number";
+    }
+    if (widgetType === "dropdown" || widgetType === "select") {
+      return "select";
+    }
+    if (widgetType === "text") {
+      return "text";
+    }
+
+    return "unknown";
   }
 
   private getPropertySuggestions(propertyId: BasesPropertyId): string[] {
