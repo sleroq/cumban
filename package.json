@@ -1,6 +1,6 @@
 {
   "name": "cumban",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Kanban view for Obsidian Bases.",
   "main": "main.js",
   "scripts": {
