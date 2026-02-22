@@ -85,6 +85,21 @@
     const dropPlacement = $derived(dragState.cardDropPlacementStore(filePath));
     const isDraggingSource = $derived(dragState.cardSourceStore(filePath));
 
+    type PrettyPropertiesApi = {
+        getPropertyBackgroundColorValue: (
+            propName: string,
+            propValue: string,
+        ) => string;
+        getPropertyTextColorValue: (
+            propName: string,
+            propValue: string,
+        ) => string;
+    };
+
+    type WindowWithPrettyPropertiesApi = Window & {
+        PrettyPropertiesApi?: PrettyPropertiesApi;
+    };
+
     function getCardTitle(
         entry: BasesEntry,
         source: "basename" | "filename" | "path",
@@ -105,6 +120,54 @@
             return text;
         }
         return text.slice(0, maxLength - 3) + "...";
+    }
+
+    function normalizeTagValue(value: string): string {
+        if (value.startsWith("#")) {
+            return value.slice(1);
+        }
+        return value;
+    }
+
+    function getPrettyTagStyleVars(
+        value: string,
+        isTagProperty: boolean,
+    ): string | undefined {
+        if (!isTagProperty || typeof window === "undefined") {
+            return undefined;
+        }
+
+        const prettyApi = (window as WindowWithPrettyPropertiesApi)
+            .PrettyPropertiesApi;
+        if (prettyApi === undefined) {
+            return undefined;
+        }
+
+        const normalizedTagValue = normalizeTagValue(value);
+        const background = prettyApi.getPropertyBackgroundColorValue(
+            "tags",
+            normalizedTagValue,
+        );
+        const text = prettyApi.getPropertyTextColorValue(
+            "tags",
+            normalizedTagValue,
+        );
+
+        const cssVars: string[] = [];
+        if (background !== "") {
+            cssVars.push(`--tag-background: ${background}`);
+            cssVars.push(`--tag-background-hover: ${background}`);
+        }
+        if (text !== "") {
+            cssVars.push(`--tag-color: ${text}`);
+            cssVars.push(`--tag-color-hover: ${text}`);
+        }
+
+        if (cssVars.length === 0) {
+            return undefined;
+        }
+
+        return cssVars.join("; ");
     }
 
     function handleClick(evt: MouseEvent): void {
@@ -278,6 +341,10 @@
                                     : "bases-kanban-property-value"}
                                 <span
                                     class={cls}
+                                    style={getPrettyTagStyleVars(
+                                        value,
+                                        isTagProperty,
+                                    )}
                                 >
                                     {value}
                                 </span>
@@ -290,6 +357,10 @@
                                     <a
                                         href="#"
                                         class={cls}
+                                        style={getPrettyTagStyleVars(
+                                            link.display,
+                                            isTagProperty,
+                                        )}
                                         onclick={(evt: MouseEvent) =>
                                             handlePropertyLinkClick(
                                                 evt,

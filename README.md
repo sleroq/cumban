@@ -11,6 +11,7 @@
 - Multi-select cards (Shift/Cmd/Ctrl + click) and batch move or trash
 - Custom backgrounds with brightness/blur controls
 - Tag styling with consistent colors based on tag name
+- Integration with [Pretty Properties](https://github.com/anareaty/pretty-properties) for user-defined tag colors
 - Wiki links render as clickable on cards
 
 ## Installation
