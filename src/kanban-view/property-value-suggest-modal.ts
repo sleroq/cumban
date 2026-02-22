@@ -1,43 +1,33 @@
-import { App, FuzzySuggestModal } from "obsidian";
+import { AbstractInputSuggest, App } from "obsidian";
 
-type PropertyValueSuggestModalArgs = {
+type PropertyValueEditorSuggestArgs = {
   app: App;
-  initialQuery: string;
-  items: string[];
+  inputEl: HTMLInputElement;
+  getItems: (query: string) => string[];
   onChoose: (value: string) => void;
 };
 
-export class PropertyValueSuggestModal extends FuzzySuggestModal<string> {
-  private readonly initialQuery: string;
-  private readonly items: string[];
+export class PropertyValueEditorSuggest extends AbstractInputSuggest<string> {
+  private readonly getItems: (query: string) => string[];
   private readonly onChoose: (value: string) => void;
 
-  constructor(args: PropertyValueSuggestModalArgs) {
-    super(args.app);
-    this.initialQuery = args.initialQuery;
-    this.items = args.items;
+  constructor(args: PropertyValueEditorSuggestArgs) {
+    super(args.app, args.inputEl);
+    this.getItems = args.getItems;
     this.onChoose = args.onChoose;
-    this.setPlaceholder("Search values");
   }
 
-  onOpen(): void {
-    super.onOpen();
-    this.inputEl.value = this.initialQuery;
-    this.inputEl.dispatchEvent(new Event("input"));
-    this.inputEl.focus();
-    this.inputEl.selectionStart = this.inputEl.value.length;
-    this.inputEl.selectionEnd = this.inputEl.value.length;
+  protected getSuggestions(query: string): string[] {
+    return this.getItems(query);
   }
 
-  getItems(): string[] {
-    return this.items;
+  renderSuggestion(item: string, el: HTMLElement): void {
+    el.setText(item);
   }
 
-  getItemText(item: string): string {
-    return item;
-  }
-
-  onChooseItem(item: string): void {
+  selectSuggestion(item: string, evt: MouseEvent | KeyboardEvent): void {
+    super.selectSuggestion(item, evt);
     this.onChoose(item);
+    this.close();
   }
 }

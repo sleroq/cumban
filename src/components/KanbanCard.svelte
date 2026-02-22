@@ -2,7 +2,7 @@
     import { onDestroy, onMount, getContext } from "svelte";
     import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
     import type { PropertyEditorMode } from "../kanban-view/actions";
-    import { PropertyValueSuggestModal } from "../kanban-view/property-value-suggest-modal";
+    import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-modal";
     import {
         getPropertyValues,
         parseWikiLinks,
@@ -72,8 +72,7 @@
     let editInput = $state("");
     let hasChanges = $state(false);
     let isSaving = $state(false);
-    let activeModal: PropertyValueSuggestModal | null = null;
-    let suggestTimeout: ReturnType<typeof setTimeout> | null = null;
+    let activeSuggest: PropertyValueEditorSuggest | null = null;
 
     const filePath = $derived(entry.file.path);
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
@@ -268,16 +267,36 @@
         hasChanges = false;
         queueMicrotask(() => {
             propertyInputEl?.focus();
+            refreshSuggestions();
+        });
+    }
+
+    function ensureSuggest(): void {
+        if (activeSuggest !== null || propertyInputEl === null) {
+            return;
+        }
+
+        activeSuggest = new PropertyValueEditorSuggest({
+            app,
+            inputEl: propertyInputEl,
+            getItems: (query: string) => {
+                if (editingPropertyId === null) {
+                    return [];
+                }
+                return getFilteredSuggestions(editingPropertyId, query);
+            },
+            onChoose: (value: string) => {
+                addValue(value);
+                queueMicrotask(() => {
+                    propertyInputEl?.focus();
+                });
+            },
         });
     }
 
     function clearEditingState(): void {
-        if (suggestTimeout !== null) {
-            clearTimeout(suggestTimeout);
-            suggestTimeout = null;
-        }
-        activeModal?.close();
-        activeModal = null;
+        activeSuggest?.close();
+        activeSuggest = null;
         editingPropertyId = null;
         editingMode = null;
         editingValues = [];
@@ -372,7 +391,7 @@
 
         if (evt.key === "ArrowDown" || (evt.ctrlKey && evt.key === " ")) {
             evt.preventDefault();
-            openSuggestions();
+            refreshSuggestions();
         }
     }
 
@@ -382,56 +401,40 @@
         removeValue(index);
     }
 
-    function getFilteredSuggestions(propertyId: BasesPropertyId): string[] {
+    function getFilteredSuggestions(
+        propertyId: BasesPropertyId,
+        query: string,
+    ): string[] {
         const allSuggestions = callbacks.card.getPropertySuggestions(propertyId);
-        const query = editInput.trim().toLowerCase();
+        const normalizedQuery = query.trim().toLowerCase();
         return allSuggestions.filter((value: string) => {
             const isAlreadySelected = editingValues.includes(value);
             if (isAlreadySelected) {
                 return false;
             }
-            if (query.length === 0) {
+            if (normalizedQuery.length === 0) {
                 return true;
             }
-            return value.toLowerCase().includes(query);
+            return value.toLowerCase().includes(normalizedQuery);
         });
     }
 
-    function openSuggestions(): void {
-        if (editingPropertyId === null) {
+    function refreshSuggestions(): void {
+        if (editingPropertyId === null || propertyInputEl === null) {
             return;
         }
-
-        const suggestions = getFilteredSuggestions(editingPropertyId);
-        activeModal?.close();
-        activeModal = new PropertyValueSuggestModal({
-            app,
-            initialQuery: editInput,
-            items: suggestions,
-            onChoose: (value: string) => {
-                addValue(value);
-            },
-        });
-        activeModal.setCloseCallback(() => {
-            activeModal = null;
-            queueMicrotask(() => {
-                propertyInputEl?.focus();
-            });
-        });
-        activeModal.open();
+        ensureSuggest();
+        propertyInputEl.dispatchEvent(new Event("input"));
     }
 
-    function scheduleSuggestions(): void {
+    function closeSuggestWhenEmpty(): void {
         if (editingPropertyId === null) {
             return;
         }
-        if (suggestTimeout !== null) {
-            clearTimeout(suggestTimeout);
+        const suggestions = getFilteredSuggestions(editingPropertyId, editInput);
+        if (suggestions.length === 0) {
+            activeSuggest?.close();
         }
-        suggestTimeout = setTimeout(() => {
-            suggestTimeout = null;
-            openSuggestions();
-        }, 120);
     }
 
     onMount(() => {
@@ -450,7 +453,10 @@
                 return;
             }
 
-            if (activeModal !== null) {
+            if (
+                target instanceof HTMLElement &&
+                target.closest(".suggestion-container") !== null
+            ) {
                 return;
             }
 
@@ -468,12 +474,8 @@
     });
 
     onDestroy(() => {
-        if (suggestTimeout !== null) {
-            clearTimeout(suggestTimeout);
-            suggestTimeout = null;
-        }
-        activeModal?.close();
-        activeModal = null;
+        activeSuggest?.close();
+        activeSuggest = null;
     });
 
     function handleClick(evt: MouseEvent): void {
@@ -699,24 +701,15 @@
                                             target instanceof HTMLInputElement
                                         ) {
                                             editInput = target.value;
-                                            scheduleSuggestions();
+                                            closeSuggestWhenEmpty();
                                         }
                                     }}
                                     onkeydown={handlePropertyInputKeyDown}
+                                    onfocus={() => {
+                                        refreshSuggestions();
+                                    }}
                                     onclick={handlePropertyEditorClick}
                                 />
-                                <button
-                                    type="button"
-                                    class="bases-kanban-property-suggest"
-                                    aria-label="Show suggestions"
-                                    onclick={(evt: MouseEvent) => {
-                                        evt.preventDefault();
-                                        evt.stopPropagation();
-                                        openSuggestions();
-                                    }}
-                                >
-                                    +
-                                </button>
                             </div>
                         {:else}
                             {#each values as value, i (i)}
