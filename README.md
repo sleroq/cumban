@@ -17,7 +17,7 @@
 
 1. Download cumban.zip from the [latest release](https://github.com/sleroq/bases-kanban/releases)
 
-2. Place it in .obsidian/plugins/ directory inside our your obsidian vault
+2. Place it in `.obsidian/plugins/` directory inside our your obsidian vault
 
 3. Enable the plugin in Obsidian:
    - Open Obsidian Settings
