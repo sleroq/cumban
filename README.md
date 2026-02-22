@@ -16,11 +16,19 @@
 
 ## Installation
 
-Community install will be available after this plugin is accepted into Obsidian Community Plugins.
+Until this plugin is available in the official plugins menu it can be installed via BRAT:
 
-Manual install:
+1. Install the BRAT plugin from "Community plugins" page.
+2. Go to the BRAT settings.
+3. Click "Add Beta Plugin" button.
+4. Paste the following URL in the text field: https://github.com/sleroq/cumban
+5. Select the latest release.
+6. Make sure that "Enable after installing the plugin" is checked.
+7. Click "Add Plugin" button.
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/sleroq/bases-kanban/releases).
+### Manual install
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/sleroq/cumban/releases).
 2. Create `.obsidian/plugins/cumban/` inside your vault.
 3. Place the three files in `.obsidian/plugins/cumban/`.
 4. Enable the plugin in Obsidian:
