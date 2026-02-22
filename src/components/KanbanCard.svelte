@@ -4,7 +4,6 @@
     import {
         getPropertyValues,
         parseWikiLinks,
-        getHashColor,
     } from "../kanban-view/utils";
     import {
         KANBAN_BOARD_CONTEXT_KEY,
@@ -279,14 +278,6 @@
                                     : "bases-kanban-property-value"}
                                 <span
                                     class={cls}
-                                    style:background-color={isTagProperty
-                                        ? getHashColor(
-                                              value,
-                                              settings.tagSaturation,
-                                              settings.tagLightness,
-                                              settings.tagAlpha,
-                                          )
-                                        : undefined}
                                 >
                                     {value}
                                 </span>
@@ -299,14 +290,6 @@
                                     <a
                                         href="#"
                                         class={cls}
-                                        style:background-color={isTagProperty
-                                            ? getHashColor(
-                                                  link.display,
-                                                  settings.tagSaturation,
-                                                  settings.tagLightness,
-                                                  settings.tagAlpha,
-                                              )
-                                            : undefined}
                                         onclick={(evt: MouseEvent) =>
                                             handlePropertyLinkClick(
                                                 evt,

@@ -252,11 +252,19 @@
 	margin-top: var(--size-4-2);
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-2-2);
+	gap: var(--metadata-gap, var(--size-2-2));
 }
 
 .bases-kanban-property-row {
-	font-size: var(--font-ui-smaller);
+	font-size: var(--metadata-input-font-size, var(--font-ui-smaller));
+	padding: var(--metadata-property-padding, 0);
+	border-radius: var(--metadata-property-radius, 0);
+	background: var(--metadata-property-background, transparent);
+}
+
+.bases-kanban-property-row:hover {
+	border-radius: var(--metadata-property-radius-hover, var(--metadata-property-radius, 0));
+	background: var(--metadata-property-background-hover, var(--metadata-property-background, transparent));
 }
 
 .bases-kanban-property-value {
@@ -266,13 +274,23 @@
 
 .bases-kanban-property-tag {
 	display: inline-block;
-	padding: 1px 6px;
-	border-radius: 100px;
-	font-size: 0.75em;
-	color: var(--bases-kanban-tag-text-color, rgba(0, 0, 0, 0.6));
-	font-weight: 500;
+	padding: var(--tag-padding-y, 1px) var(--tag-padding-x, 6px);
+	border-radius: var(--tag-radius, 100px);
+	border: var(--tag-border-width, 0) solid var(--tag-border-color, transparent);
+	font-size: var(--tag-size, 0.75em);
+	color: var(--tag-color, var(--bases-kanban-tag-text-color, rgba(0, 0, 0, 0.6)));
+	background: var(--tag-background, transparent);
+	font-weight: var(--tag-weight, 500);
+	text-decoration: var(--tag-decoration, none);
 	margin-right: 3px;
 	margin-bottom: 2px;
+}
+
+.bases-kanban-property-tag:hover {
+	color: var(--tag-color-hover, var(--tag-color, var(--bases-kanban-tag-text-color, rgba(0, 0, 0, 0.6))));
+	background: var(--tag-background-hover, var(--tag-background, transparent));
+	text-decoration: var(--tag-decoration-hover, var(--tag-decoration, none));
+	border-color: var(--tag-border-color-hover, var(--tag-border-color, transparent));
 }
 
 .bases-kanban-trash-confirm-button {
