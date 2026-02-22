@@ -117,6 +117,51 @@ export function parseWikiLinks(value: string): ParsedWikiLink[] {
   return links;
 }
 
+function splitTopLevelCommaSeparated(value: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let wikiDepth = 0;
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    const nextChar = i < value.length - 1 ? value[i + 1] : "";
+
+    if (char === "[" && nextChar === "[") {
+      wikiDepth += 1;
+      current += "[[";
+      i += 1;
+      continue;
+    }
+
+    if (char === "]" && nextChar === "]") {
+      if (wikiDepth > 0) {
+        wikiDepth -= 1;
+      }
+      current += "]]";
+      i += 1;
+      continue;
+    }
+
+    if (char === "," && wikiDepth === 0) {
+      const trimmed = current.trim();
+      if (trimmed.length > 0) {
+        parts.push(trimmed);
+      }
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  const trimmed = current.trim();
+  if (trimmed.length > 0) {
+    parts.push(trimmed);
+  }
+
+  return parts;
+}
+
 export function getPropertyValues(value: unknown): string[] | null {
   if (value === null || value === undefined || value instanceof NullValue) {
     return null;
@@ -140,10 +185,7 @@ export function getPropertyValues(value: unknown): string[] | null {
 
   // Handle comma-separated tags
   if (stringValue.includes(",")) {
-    return stringValue
-      .split(",")
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0);
+    return splitTopLevelCommaSeparated(stringValue);
   }
 
   return [stringValue];
