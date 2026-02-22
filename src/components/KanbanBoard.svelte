@@ -14,6 +14,7 @@
         type KanbanBoardContext,
     } from "../kanban-view/board-context";
     import { createKanbanDragState } from "../kanban-view/drag-state";
+    import { getColumnKey } from "../kanban-view/utils";
 
     type Props = {
         groups: Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>;
@@ -59,13 +60,6 @@
         },
     });
     setContext(KANBAN_BOARD_CONTEXT_KEY, boardContextValue);
-
-    function getColumnKey(groupKey: unknown): string {
-        if (groupKey === undefined || groupKey === null) {
-            return "__bases_kanban_no_value__";
-        }
-        return String(groupKey);
-    }
 
     function handleBoardScroll(): void {
         if (boardEl === null) return;
