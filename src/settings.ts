@@ -21,6 +21,7 @@ export interface BasesKanbanSettings {
   cardTitleSource: "basename" | "filename" | "path";
   cardTitleMaxLength: number;
   cardTitleColor: string;
+  propertyValueMaxLength: number;
   propertyValueSeparator: string;
   tagPropertySuffix: string;
 
@@ -63,6 +64,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   cardTitleSource: "basename",
   cardTitleMaxLength: 60,
   cardTitleColor: "var(--text-normal)",
+  propertyValueMaxLength: 40,
   propertyValueSeparator: ", ",
   tagPropertySuffix: ".tags",
 
@@ -178,6 +180,22 @@ export class KanbanSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.cardTitleColor =
               value || DEFAULT_SETTINGS.cardTitleColor;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Maximum property value length")
+      .setDesc(
+        'Property values longer than this will be truncated with "...".',
+      )
+      .addSlider((slider) =>
+        slider
+          .setLimits(10, 60, 5)
+          .setValue(this.plugin.settings.propertyValueMaxLength)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.propertyValueMaxLength = value;
             await this.plugin.saveSettings();
           }),
       );

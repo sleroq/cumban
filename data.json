@@ -11,6 +11,7 @@
   "cardTitleSource": "basename",
   "cardTitleMaxLength": 0,
   "cardTitleColor": "var(--text-normal)",
+  "propertyValueMaxLength": 35,
   "propertyValueSeparator": ", ",
   "tagPropertySuffix": ".tags",
   "columnHeaderWidth": 150,

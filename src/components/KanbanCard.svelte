@@ -134,6 +134,16 @@
         return text.slice(0, maxLength - 3) + "...";
     }
 
+    function truncatePropertyValue(text: string, maxLength: number): string {
+        if (maxLength <= 0 || text.length <= maxLength) {
+            return text;
+        }
+        if (maxLength <= 3) {
+            return ".".repeat(maxLength);
+        }
+        return text.slice(0, maxLength - 3) + "...";
+    }
+
     function normalizeTagValue(value: string): string {
         if (value.startsWith("#")) {
             return value.slice(1);
@@ -445,6 +455,13 @@
         mode: PropertyEditorMode | null,
         values: string[],
     ): void {
+        const target = evt.target;
+        if (
+            target instanceof HTMLElement &&
+            target.closest(".external-link") !== null
+        ) {
+            return;
+        }
         if (mode === null) {
             return;
         }
@@ -695,6 +712,24 @@
         callbacks.card.linkClick(evt, target);
     }
 
+    function getExternalLinkHref(value: string): string | null {
+        const trimmedValue = value.trim();
+        if (trimmedValue.length === 0 || trimmedValue.includes(" ")) {
+            return null;
+        }
+
+        try {
+            const url = new URL(trimmedValue);
+            if (url.protocol === "http:" || url.protocol === "https:") {
+                return trimmedValue;
+            }
+        } catch (_error: unknown) {
+            return null;
+        }
+
+        return null;
+    }
+
     function handleKeyDown(evt: KeyboardEvent): void {
         if (evt.key !== "Enter" && evt.key !== " ") {
             return;
@@ -836,22 +871,52 @@
                             </div>
                         {:else}
                             {#each values as value, i (i)}
+                                {@const truncatedValue = truncatePropertyValue(
+                                    value,
+                                    settings.propertyValueMaxLength,
+                                )}
                                 {@const links = parseWikiLinks(value)}
                                 {#if links.length === 0}
-                                    {@const cls = isTagProperty
-                                        ? "bases-kanban-property-value bases-kanban-property-tag"
-                                        : "bases-kanban-property-value"}
-                                    <span
-                                        class={cls}
-                                        style={getPrettyTagStyleVars(
-                                            value,
-                                            isTagProperty,
-                                        )}
-                                    >
-                                        {value}
-                                    </span>
+                                    {@const externalLinkHref = isTagProperty
+                                        ? null
+                                        : getExternalLinkHref(value)}
+                                    {#if externalLinkHref !== null}
+                                        <div
+                                            class="bases-kanban-property-value metadata-property-value"
+                                            data-property-type="text"
+                                        >
+                                            <div class="metadata-link">
+                                            <div
+                                                class="metadata-link-inner external-link"
+                                                data-href={externalLinkHref}
+                                            >
+                                                {truncatedValue}
+                                            </div>
+                                            <div class="metadata-link-flair"
+                                            ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></div>
+                                            </div>
+                                        </div>
+                                    {:else}
+                                        {@const cls = isTagProperty
+                                            ? "bases-kanban-property-value bases-kanban-property-tag"
+                                            : "bases-kanban-property-value"}
+                                        <span
+                                            class={cls}
+                                            style={getPrettyTagStyleVars(
+                                                value,
+                                                isTagProperty,
+                                            )}
+                                        >
+                                            {truncatedValue}
+                                        </span>
+                                    {/if}
                                 {:else}
                                     {#each links as link, linkIndex (linkIndex)}
+                                        {@const truncatedLinkDisplay =
+                                            truncatePropertyValue(
+                                                link.display,
+                                                settings.propertyValueMaxLength,
+                                            )}
                                         {@const cls = isTagProperty
                                             ? "bases-kanban-property-value internal-link bases-kanban-property-link bases-kanban-property-tag"
                                             : "bases-kanban-property-value internal-link bases-kanban-property-link"}
@@ -869,7 +934,7 @@
                                                     link.target,
                                                 )}
                                         >
-                                            {link.display}
+                                            {truncatedLinkDisplay}
                                         </a>
                                         {#if !isTagProperty && linkIndex < links.length - 1}
                                             <span
