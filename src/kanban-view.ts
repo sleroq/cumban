@@ -516,6 +516,10 @@ export class KanbanView extends BasesView {
       return "single";
     }
 
+    if (widgetType === "text" || widgetType === "") {
+      return "single";
+    }
+
     if (propertyName === "tags") {
       return "multi";
     }

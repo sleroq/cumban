@@ -297,7 +297,11 @@
 
         if (editingMode === "single") {
             editingValues = [normalizedValue];
-            clearEditInput();
+            editInput = normalizedValue;
+            if (propertyInputEl !== null) {
+                propertyInputEl.textContent = normalizedValue;
+                placeCaretAtEnd(propertyInputEl);
+            }
             markChanges();
             return;
         }
@@ -313,6 +317,14 @@
     }
 
     function commitPendingInput(): void {
+        if (editingMode === "single") {
+            const pendingValue = normalizeInputValue(getCurrentEditInput());
+            editingValues =
+                pendingValue.length === 0 ? [] : [pendingValue];
+            markChanges();
+            return;
+        }
+
         const pendingValue = normalizeInputValue(getCurrentEditInput());
         if (pendingValue.length === 0) {
             return;
@@ -340,9 +352,13 @@
         editingMode = mode;
         editingValues = [...values];
         originalValues = [...values];
-        editInput = "";
+        editInput = mode === "single" ? (values[0] ?? "") : "";
         hasChanges = false;
         queueMicrotask(() => {
+            if (mode === "single" && propertyInputEl !== null) {
+                propertyInputEl.textContent = editInput;
+                placeCaretAtEnd(propertyInputEl);
+            }
             propertyInputEl?.focus();
             refreshSuggestions();
         });
@@ -754,44 +770,46 @@
                                 tabindex="-1"
                                 onclick={handlePropertyEditorClick}
                             >
-                                {#each editingValues as value, valueIndex (`${value}-${valueIndex}`)}
-                                    {@const pillClass = isTagProperty
-                                        ? "multi-select-pill theme-color"
-                                        : "multi-select-pill"}
-                                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                                    <div
-                                        class={pillClass}
-                                        tabindex="0"
-                                        data-tag-value={value}
-                                        style={getPrettyTagPillStyle(
-                                            value,
-                                            isTagProperty,
-                                            { fallbackToAccent: true },
-                                        )}
-                                    >
-                                        <div class="multi-select-pill-content">
-                                            <span>{value}</span>
-                                        </div>
+                                {#if mode === "multi"}
+                                    {#each editingValues as value, valueIndex (`${value}-${valueIndex}`)}
+                                        {@const pillClass = isTagProperty
+                                            ? "multi-select-pill theme-color"
+                                            : "multi-select-pill"}
+                                        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                                         <div
-                                            class="multi-select-pill-remove-button"
-                                            role="button"
+                                            class={pillClass}
                                             tabindex="0"
-                                            onclick={(evt: MouseEvent) =>
-                                                handleRemoveValue(
-                                                    evt,
-                                                    valueIndex,
-                                                )}
-                                            onkeydown={(evt: KeyboardEvent) => {
-                                                if (evt.key === "Enter" || evt.key === " ") {
-                                                    evt.preventDefault();
-                                                    handleRemoveValue(evt, valueIndex);
-                                                }
-                                            }}
+                                            data-tag-value={value}
+                                            style={getPrettyTagPillStyle(
+                                                value,
+                                                isTagProperty,
+                                                { fallbackToAccent: true },
+                                            )}
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                                            <div class="multi-select-pill-content">
+                                                <span>{value}</span>
+                                            </div>
+                                            <div
+                                                class="multi-select-pill-remove-button"
+                                                role="button"
+                                                tabindex="0"
+                                                onclick={(evt: MouseEvent) =>
+                                                    handleRemoveValue(
+                                                        evt,
+                                                        valueIndex,
+                                                    )}
+                                                onkeydown={(evt: KeyboardEvent) => {
+                                                    if (evt.key === "Enter" || evt.key === " ") {
+                                                        evt.preventDefault();
+                                                        handleRemoveValue(evt, valueIndex);
+                                                    }
+                                                }}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                                            </div>
                                         </div>
-                                    </div>
-                                {/each}
+                                    {/each}
+                                {/if}
                                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                                 <div
                                     bind:this={propertyInputEl}
