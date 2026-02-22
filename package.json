@@ -1,6 +1,6 @@
 {
   "name": "cumban",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Kanban view for Bases.",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,11 @@
     "typecheck": "tsc -noEmit -skipLibCheck",
     "build": "bun run typecheck && bun esbuild.config.mjs production",
     "lint": "eslint ./src",
-    "svelte-check": "svelte-check --tsconfig ./tsconfig.json"
+    "svelte-check": "svelte-check --tsconfig ./tsconfig.json",
+    "version:bump": "node version-bump.mjs",
+    "version:patch": "node version-bump.mjs patch",
+    "version:minor": "node version-bump.mjs minor",
+    "version:major": "node version-bump.mjs major"
   },
   "keywords": [
     "obsidian",
