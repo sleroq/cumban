@@ -655,31 +655,10 @@ export class KanbanView extends BasesView {
     if (entry === undefined) {
       return false;
     }
-
-    const propertyKey = getWritablePropertyKey(propertyId);
-    if (propertyKey === null) {
-      return false;
-    }
-
-    const cache = this.app.metadataCache.getFileCache(entry.file);
-    const frontmatter = cache?.frontmatter;
-    if (frontmatter !== undefined) {
-      const rawValue = Object.prototype.hasOwnProperty.call(frontmatter, propertyId)
-        ? frontmatter[propertyId]
-        : frontmatter[propertyKey];
-      if (rawValue !== undefined) {
-        return this.isCheckboxValueChecked(rawValue);
-      }
-    }
-
     return this.isCheckboxValueChecked(entry.getValue(propertyId));
   }
 
   private isCheckboxValueChecked(value: unknown): boolean {
-    if (Array.isArray(value)) {
-      return value.some((item) => this.isCheckboxValueChecked(item));
-    }
-
     if (typeof value === "boolean") {
       return value;
     }
@@ -695,26 +674,13 @@ export class KanbanView extends BasesView {
         normalized === "1" ||
         normalized === "yes" ||
         normalized === "on" ||
-        normalized === "checked" ||
-        normalized === "x"
+        normalized === "checked"
       );
     }
 
     if (typeof value === "object" && value !== null) {
       if ("data" in value) {
         return this.isCheckboxValueChecked(value.data);
-      }
-      if ("checked" in value) {
-        return this.isCheckboxValueChecked(value.checked);
-      }
-      if ("value" in value) {
-        return this.isCheckboxValueChecked(value.value);
-      }
-      if ("icon" in value && typeof value.icon === "string") {
-        const icon = value.icon.toLowerCase();
-        if (icon.includes("check-square") || icon.includes("square-check")) {
-          return true;
-        }
       }
     }
 
