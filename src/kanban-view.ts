@@ -298,10 +298,8 @@ export class KanbanView extends BasesView {
         ) => this.createCardForColumn(grpByProperty, grpKey),
         onCardSelect: (filePath: string, extendSelection: boolean) =>
           this.selectCard(filePath, extendSelection),
-        onCardDragStart: (
-          filePath: string,
-          cardIndex: number,
-        ) => this.startCardDrag(filePath, cardIndex),
+        onCardDragStart: (filePath: string, cardIndex: number) =>
+          this.startCardDrag(filePath, cardIndex),
         onCardDragEnd: () => this.endCardDrag(),
         onCardDrop: (
           sourcePath: string | null,
@@ -744,10 +742,7 @@ export class KanbanView extends BasesView {
   }
 
   // Card drag handlers (replaces drag-controller)
-  private startCardDrag(
-    filePath: string,
-    cardIndex: number,
-  ): void {
+  private startCardDrag(filePath: string, cardIndex: number): void {
     const draggedPaths = getDraggedPathsState(
       this.selectionState,
       filePath,
@@ -769,7 +764,6 @@ export class KanbanView extends BasesView {
     }
 
     this.viewModel.startCardDrag(filePath);
-
   }
 
   private endCardDrag(): void {

@@ -1,254 +1,347 @@
-/**
- * Drag and drop state management for Svelte Kanban components.
- * Uses Svelte stores for reactive state (runes only work in .svelte files).
- */
+import {
+  derived,
+  get,
+  writable,
+  type Readable,
+  type Writable,
+} from "svelte/store";
 
-import { writable, derived, get, type Writable, type Readable } from "svelte/store";
 import { logDragEvent } from "./debug";
 
-// Card drag state types
-export type CardDragState = {
-  sourcePath: string | null;
-  targetPath: string | null;
-  targetColumnKey: string | null;
-  placement: "before" | "after" | null;
+export type DragPlacement = "before" | "after";
+
+export type DragSession =
+  | { kind: "card"; sourcePath: string }
+  | { kind: "column"; sourceKey: string }
+  | null;
+
+export type DragDropTarget =
+  | {
+      kind: "card";
+      targetPath: string;
+      targetColumnKey: string;
+      placement: DragPlacement;
+    }
+  | { kind: "column"; targetKey: string; placement: DragPlacement }
+  | null;
+
+export type KanbanDragState = {
+  session: Writable<DragSession>;
+  dropTarget: Writable<DragDropTarget>;
+  isDragging: Readable<boolean>;
+  isCardDragging: Readable<boolean>;
+  isColumnDragging: Readable<boolean>;
+  cardSourcePath: Readable<string | null>;
+  columnSourceKey: Readable<string | null>;
+  startCardDrag: (filePath: string, dataTransfer: DataTransfer | null) => void;
+  startColumnDrag: (
+    columnKey: string,
+    dataTransfer: DataTransfer | null,
+  ) => void;
+  endDrag: () => void;
+  clearDropTarget: () => void;
+  setCardDropTarget: (
+    targetPath: string | null,
+    targetColumnKey: string | null,
+    placement: DragPlacement | null,
+  ) => void;
+  setColumnDropTarget: (
+    targetKey: string | null,
+    placement: DragPlacement | null,
+  ) => void;
+  getCardSourcePath: () => string | null;
+  getColumnSourceKey: () => string | null;
+  getCardPlacement: () => DragPlacement | null;
+  getCardDropPlacement: (path: string) => DragPlacement | null;
+  getColumnDropPlacement: (key: string) => DragPlacement | null;
+  cardDropTargetStore: (path: string) => Readable<boolean>;
+  cardDropPlacementStore: (path: string) => Readable<DragPlacement | null>;
+  cardSourceStore: (path: string) => Readable<boolean>;
+  columnDropTargetStore: (key: string) => Readable<boolean>;
+  columnDropPlacementStore: (key: string) => Readable<DragPlacement | null>;
+  columnSourceStore: (key: string) => Readable<boolean>;
 };
 
-// Column drag state types
-export type ColumnDragState = {
-  sourceKey: string | null;
-  targetKey: string | null;
-  placement: "before" | "after" | null;
-};
+export function createKanbanDragState(): KanbanDragState {
+  const session = writable<DragSession>(null);
+  const dropTarget = writable<DragDropTarget>(null);
 
-// Create card drag state stores
-export function createCardDragState(): {
-  sourcePath: Writable<string | null>;
-  targetPath: Writable<string | null>;
-  targetColumnKey: Writable<string | null>;
-  placement: Writable<"before" | "after" | null>;
-  isDragging: Readable<boolean>;
-  startDrag: (filePath: string, dataTransfer: DataTransfer | null) => void;
-  endDrag: () => void;
-  setDropTarget: (targetPath: string | null, targetColumnKey: string | null, placement: "before" | "after" | null) => void;
-  clearDropTarget: () => void;
-  isDropTarget: (path: string) => boolean;
-  isDropTargetInColumn: (columnKey: string) => boolean;
-  getDropPlacement: (path: string) => "before" | "after" | null;
-  isDraggingSource: (path: string) => boolean;
-  getSourcePath: () => string | null;
-  getTargetPath: () => string | null;
-  getPlacement: () => "before" | "after" | null;
-  // Store-returning methods for reactive access in Svelte 5
-  isDropTargetStore: (path: string) => Readable<boolean>;
-  isDropTargetInColumnStore: (columnKey: string) => Readable<boolean>;
-  getDropPlacementStore: (path: string) => Readable<"before" | "after" | null>;
-  isDraggingSourceStore: (path: string) => Readable<boolean>;
-} {
-  const sourcePath = writable<string | null>(null);
-  const targetPath = writable<string | null>(null);
-  const targetColumnKey = writable<string | null>(null);
-  const placement = writable<"before" | "after" | null>(null);
+  const isDragging = derived(session, ($session) => $session !== null);
+  const isCardDragging = derived(
+    session,
+    ($session) => $session?.kind === "card",
+  );
+  const isColumnDragging = derived(
+    session,
+    ($session) => $session?.kind === "column",
+  );
+  const cardSourcePath = derived(session, ($session) =>
+    $session?.kind === "card" ? $session.sourcePath : null,
+  );
+  const columnSourceKey = derived(session, ($session) =>
+    $session?.kind === "column" ? $session.sourceKey : null,
+  );
 
-  const isDragging = derived(sourcePath, ($sourcePath) => $sourcePath !== null);
+  const cardDropTargetCache = new Map<string, Readable<boolean>>();
+  const cardDropPlacementCache = new Map<
+    string,
+    Readable<DragPlacement | null>
+  >();
+  const cardSourceCache = new Map<string, Readable<boolean>>();
+  const columnDropTargetCache = new Map<string, Readable<boolean>>();
+  const columnDropPlacementCache = new Map<
+    string,
+    Readable<DragPlacement | null>
+  >();
+  const columnSourceCache = new Map<string, Readable<boolean>>();
+
+  function startCardDrag(
+    filePath: string,
+    dataTransfer: DataTransfer | null,
+  ): void {
+    session.set({ kind: "card", sourcePath: filePath });
+    dropTarget.set(null);
+
+    if (dataTransfer !== null) {
+      dataTransfer.effectAllowed = "move";
+      dataTransfer.setData("text/plain", filePath);
+    }
+
+    logDragEvent("Card drag started", { filePath });
+  }
+
+  function startColumnDrag(
+    columnKey: string,
+    dataTransfer: DataTransfer | null,
+  ): void {
+    session.set({ kind: "column", sourceKey: columnKey });
+    dropTarget.set(null);
+
+    if (dataTransfer !== null) {
+      dataTransfer.effectAllowed = "move";
+      dataTransfer.setData("text/plain", columnKey);
+    }
+
+    logDragEvent("Column drag started", { columnKey });
+  }
+
+  function clearDropTarget(): void {
+    dropTarget.set(null);
+  }
+
+  function endDrag(): void {
+    logDragEvent("Drag ended", {
+      session: get(session),
+      dropTarget: get(dropTarget),
+    });
+    session.set(null);
+    dropTarget.set(null);
+  }
+
+  function setCardDropTarget(
+    targetPath: string | null,
+    targetColumnKey: string | null,
+    placement: DragPlacement | null,
+  ): void {
+    if (targetPath === null || targetColumnKey === null || placement === null) {
+      if (get(dropTarget) !== null) {
+        dropTarget.set(null);
+      }
+      return;
+    }
+
+    const nextTarget: DragDropTarget = {
+      kind: "card",
+      targetPath,
+      targetColumnKey,
+      placement,
+    };
+    const current = get(dropTarget);
+    if (
+      current?.kind === "card" &&
+      current.targetPath === nextTarget.targetPath &&
+      current.targetColumnKey === nextTarget.targetColumnKey &&
+      current.placement === nextTarget.placement
+    ) {
+      return;
+    }
+
+    dropTarget.set(nextTarget);
+  }
+
+  function setColumnDropTarget(
+    targetKey: string | null,
+    placement: DragPlacement | null,
+  ): void {
+    if (targetKey === null || placement === null) {
+      if (get(dropTarget) !== null) {
+        dropTarget.set(null);
+      }
+      return;
+    }
+
+    const nextTarget: DragDropTarget = {
+      kind: "column",
+      targetKey,
+      placement,
+    };
+    const current = get(dropTarget);
+    if (
+      current?.kind === "column" &&
+      current.targetKey === nextTarget.targetKey &&
+      current.placement === nextTarget.placement
+    ) {
+      return;
+    }
+
+    dropTarget.set(nextTarget);
+  }
+
+  function getCardSourcePath(): string | null {
+    const current = get(session);
+    return current?.kind === "card" ? current.sourcePath : null;
+  }
+
+  function getColumnSourceKey(): string | null {
+    const current = get(session);
+    return current?.kind === "column" ? current.sourceKey : null;
+  }
+
+  function getCardPlacement(): DragPlacement | null {
+    const current = get(dropTarget);
+    return current?.kind === "card" ? current.placement : null;
+  }
+
+  function getCardDropPlacement(path: string): DragPlacement | null {
+    const current = get(dropTarget);
+    return current?.kind === "card" && current.targetPath === path
+      ? current.placement
+      : null;
+  }
+
+  function getColumnDropPlacement(key: string): DragPlacement | null {
+    const current = get(dropTarget);
+    return current?.kind === "column" && current.targetKey === key
+      ? current.placement
+      : null;
+  }
+
+  function cardDropTargetStore(path: string): Readable<boolean> {
+    const cached = cardDropTargetCache.get(path);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const store = derived(
+      dropTarget,
+      ($dropTarget) =>
+        $dropTarget?.kind === "card" && $dropTarget.targetPath === path,
+    );
+    cardDropTargetCache.set(path, store);
+    return store;
+  }
+
+  function cardDropPlacementStore(
+    path: string,
+  ): Readable<DragPlacement | null> {
+    const cached = cardDropPlacementCache.get(path);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const store = derived(dropTarget, ($dropTarget) =>
+      $dropTarget?.kind === "card" && $dropTarget.targetPath === path
+        ? $dropTarget.placement
+        : null,
+    );
+    cardDropPlacementCache.set(path, store);
+    return store;
+  }
+
+  function cardSourceStore(path: string): Readable<boolean> {
+    const cached = cardSourceCache.get(path);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const store = derived(
+      session,
+      ($session) => $session?.kind === "card" && $session.sourcePath === path,
+    );
+    cardSourceCache.set(path, store);
+    return store;
+  }
+
+  function columnDropTargetStore(key: string): Readable<boolean> {
+    const cached = columnDropTargetCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const store = derived(
+      dropTarget,
+      ($dropTarget) =>
+        $dropTarget?.kind === "column" && $dropTarget.targetKey === key,
+    );
+    columnDropTargetCache.set(key, store);
+    return store;
+  }
+
+  function columnDropPlacementStore(
+    key: string,
+  ): Readable<DragPlacement | null> {
+    const cached = columnDropPlacementCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const store = derived(dropTarget, ($dropTarget) =>
+      $dropTarget?.kind === "column" && $dropTarget.targetKey === key
+        ? $dropTarget.placement
+        : null,
+    );
+    columnDropPlacementCache.set(key, store);
+    return store;
+  }
+
+  function columnSourceStore(key: string): Readable<boolean> {
+    const cached = columnSourceCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const store = derived(
+      session,
+      ($session) => $session?.kind === "column" && $session.sourceKey === key,
+    );
+    columnSourceCache.set(key, store);
+    return store;
+  }
 
   return {
-    sourcePath,
-    targetPath,
-    targetColumnKey,
-    placement,
+    session,
+    dropTarget,
     isDragging,
-
-    startDrag(filePath: string, dataTransfer: DataTransfer | null): void {
-      sourcePath.set(filePath);
-      targetPath.set(null);
-      targetColumnKey.set(null);
-      placement.set(null);
-
-      if (dataTransfer !== null) {
-        dataTransfer.effectAllowed = "move";
-        dataTransfer.setData("text/plain", filePath);
-      }
-
-      logDragEvent("Card drag started", { filePath });
-    },
-
-    endDrag(): void {
-      logDragEvent("Card drag ended", {
-        sourcePath: get(sourcePath),
-        targetPath: get(targetPath),
-        placement: get(placement),
-      });
-
-      sourcePath.set(null);
-      targetPath.set(null);
-      targetColumnKey.set(null);
-      placement.set(null);
-    },
-
-    setDropTarget(newTargetPath: string | null, newTargetColumnKey: string | null, newPlacement: "before" | "after" | null): void {
-      if (get(targetPath) === newTargetPath && get(targetColumnKey) === newTargetColumnKey && get(placement) === newPlacement) {
-        return;
-      }
-      targetPath.set(newTargetPath);
-      targetColumnKey.set(newTargetColumnKey);
-      placement.set(newPlacement);
-    },
-
-    clearDropTarget(): void {
-      targetPath.set(null);
-      targetColumnKey.set(null);
-      placement.set(null);
-    },
-
-    isDropTarget(path: string): boolean {
-      return get(targetPath) === path;
-    },
-
-    isDropTargetInColumn(columnKey: string): boolean {
-      return get(targetColumnKey) === columnKey;
-    },
-
-    getDropPlacement(path: string): "before" | "after" | null {
-      return get(targetPath) === path ? get(placement) : null;
-    },
-
-    isDraggingSource(path: string): boolean {
-      return get(sourcePath) === path;
-    },
-
-    getSourcePath(): string | null {
-      return get(sourcePath);
-    },
-
-    getTargetPath(): string | null {
-      return get(targetPath);
-    },
-
-    getPlacement(): "before" | "after" | null {
-      return get(placement);
-    },
-
-    // Store-returning methods for reactive access in Svelte 5
-    isDropTargetStore(path: string): Readable<boolean> {
-      return derived(targetPath, ($targetPath) => $targetPath === path);
-    },
-
-    isDropTargetInColumnStore(columnKey: string): Readable<boolean> {
-      return derived(targetColumnKey, ($targetColumnKey) => $targetColumnKey === columnKey);
-    },
-
-    getDropPlacementStore(path: string): Readable<"before" | "after" | null> {
-      return derived([targetPath, placement], ([$targetPath, $placement]) =>
-        $targetPath === path ? $placement : null
-      );
-    },
-
-    isDraggingSourceStore(path: string): Readable<boolean> {
-      return derived(sourcePath, ($sourcePath) => $sourcePath === path);
-    },
+    isCardDragging,
+    isColumnDragging,
+    cardSourcePath,
+    columnSourceKey,
+    startCardDrag,
+    startColumnDrag,
+    endDrag,
+    clearDropTarget,
+    setCardDropTarget,
+    setColumnDropTarget,
+    getCardSourcePath,
+    getColumnSourceKey,
+    getCardPlacement,
+    getCardDropPlacement,
+    getColumnDropPlacement,
+    cardDropTargetStore,
+    cardDropPlacementStore,
+    cardSourceStore,
+    columnDropTargetStore,
+    columnDropPlacementStore,
+    columnSourceStore,
   };
 }
-
-// Create column drag state stores
-export function createColumnDragState(): {
-  sourceKey: Writable<string | null>;
-  targetKey: Writable<string | null>;
-  placement: Writable<"before" | "after" | null>;
-  isDragging: Readable<boolean>;
-  startDrag: (columnKey: string, dataTransfer: DataTransfer | null) => void;
-  endDrag: () => void;
-  setDropTarget: (targetKey: string | null, newPlacement: "before" | "after" | null) => void;
-  clearDropTarget: () => void;
-  isDropTarget: (key: string) => boolean;
-  getDropPlacement: (key: string) => "before" | "after" | null;
-  isDraggingSource: (key: string) => boolean;
-  getPlacement: () => "before" | "after" | null;
-  isDropTargetStore: (key: string) => Readable<boolean>;
-  getDropPlacementStore: (key: string) => Readable<"before" | "after" | null>;
-  isDraggingSourceStore: (key: string) => Readable<boolean>;
-} {
-  const sourceKey = writable<string | null>(null);
-  const targetKey = writable<string | null>(null);
-  const placement = writable<"before" | "after" | null>(null);
-
-  const isDragging = derived(sourceKey, ($sourceKey) => $sourceKey !== null);
-
-  return {
-    sourceKey,
-    targetKey,
-    placement,
-    isDragging,
-
-    startDrag(columnKey: string, dataTransfer: DataTransfer | null): void {
-      sourceKey.set(columnKey);
-      targetKey.set(null);
-      placement.set(null);
-
-      if (dataTransfer !== null) {
-        dataTransfer.effectAllowed = "move";
-        dataTransfer.setData("text/plain", columnKey);
-      }
-
-      logDragEvent("Column drag started", { columnKey });
-    },
-
-    endDrag(): void {
-      logDragEvent("Column drag ended", {
-        sourceKey: get(sourceKey),
-        targetKey: get(targetKey),
-        placement: get(placement),
-      });
-
-      sourceKey.set(null);
-      targetKey.set(null);
-      placement.set(null);
-    },
-
-    setDropTarget(newTargetKey: string | null, newPlacement: "before" | "after" | null): void {
-      if (get(targetKey) === newTargetKey && get(placement) === newPlacement) {
-        return;
-      }
-      targetKey.set(newTargetKey);
-      placement.set(newPlacement);
-    },
-
-    clearDropTarget(): void {
-      targetKey.set(null);
-      placement.set(null);
-    },
-
-    isDropTarget(key: string): boolean {
-      return get(targetKey) === key;
-    },
-
-    getDropPlacement(key: string): "before" | "after" | null {
-      return get(targetKey) === key ? get(placement) : null;
-    },
-
-    isDraggingSource(key: string): boolean {
-      return get(sourceKey) === key;
-    },
-
-    getPlacement(): "before" | "after" | null {
-      return get(placement);
-    },
-
-    // Store-returning methods for reactive access in Svelte 5
-    isDropTargetStore(key: string): Readable<boolean> {
-      return derived(targetKey, ($targetKey) => $targetKey === key);
-    },
-
-    getDropPlacementStore(key: string): Readable<"before" | "after" | null> {
-      return derived([targetKey, placement], ([$targetKey, $placement]) =>
-        $targetKey === key ? $placement : null
-      );
-    },
-
-    isDraggingSourceStore(key: string): Readable<boolean> {
-      return derived(sourceKey, ($sourceKey) => $sourceKey === key);
-    },
-  };
-}
-
-

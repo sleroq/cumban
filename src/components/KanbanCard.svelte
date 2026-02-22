@@ -6,7 +6,7 @@
         parseWikiLinks,
         getHashColor,
     } from "../kanban-view/utils";
-    import type { createCardDragState } from "../kanban-view/drag-state";
+    import type { KanbanDragState } from "../kanban-view/drag-state";
     import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
     import type { KanbanContext } from "../kanban-view/context";
 
@@ -17,7 +17,7 @@
         cardIndex: number;
         groupByProperty: BasesPropertyId | null;
         selectedProperties: BasesPropertyId[];
-        cardDragState: ReturnType<typeof createCardDragState>;
+        dragState: KanbanDragState;
         onSelect: (filePath: string, extendSelection: boolean) => void;
         onDragStart: (
             evt: DragEvent,
@@ -46,7 +46,7 @@
         cardIndex,
         groupByProperty,
         selectedProperties,
-        cardDragState,
+        dragState,
         onSelect,
         onDragStart,
         onDragEnd,
@@ -84,9 +84,9 @@
     const selected = $derived($selectedPathsStore.has(filePath));
 
     // Reactive stores for drag state (using store-returning methods for proper Svelte 5 reactivity)
-    const isDropTarget = $derived(cardDragState.isDropTargetStore(filePath));
-    const dropPlacement = $derived(cardDragState.getDropPlacementStore(filePath));
-    const isDraggingSource = $derived(cardDragState.isDraggingSourceStore(filePath));
+    const isDropTarget = $derived(dragState.cardDropTargetStore(filePath));
+    const dropPlacement = $derived(dragState.cardDropPlacementStore(filePath));
+    const isDraggingSource = $derived(dragState.cardSourceStore(filePath));
 
     function getCardTitle(
         entry: BasesEntry,
@@ -186,7 +186,7 @@
             cancelAnimationFrame(rafId);
             rafId = null;
         }
-        const placement = cardDragState.getDropPlacement(filePath) ?? "after";
+        const placement = dragState.getCardDropPlacement(filePath) ?? "after";
         onDrop(filePath, groupKey, placement);
     }
 
