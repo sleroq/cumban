@@ -165,6 +165,7 @@ src/
 - Use Svelte context for deeply shared data (settings, stores)
 - Pass callbacks as props rather than using events for parent communication
 - Use keyed `{#each}` blocks with unique identifiers: `{#each items as item (item.id)}`
+- For callback-heavy trees, group callbacks in typed objects and provide them via board-level context to reduce prop drilling churn
 
 ## Key Implementation Patterns
 
