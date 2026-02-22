@@ -254,6 +254,7 @@
         <a
             href="#"
             class="internal-link"
+            style:color={settings.cardTitleColor}
             onclick={handleLinkClick}
             oncontextmenu={handleTitleContextMenu}
         >

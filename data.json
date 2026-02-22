@@ -10,6 +10,7 @@
   "failedTrashNoticeText": "Failed to move {count} file(s) to trash",
   "cardTitleSource": "basename",
   "cardTitleMaxLength": 0,
+  "cardTitleColor": "var(--text-normal)",
   "propertyValueSeparator": ", ",
   "tagPropertySuffix": ".tags",
   "columnNameMaxLength": 40,

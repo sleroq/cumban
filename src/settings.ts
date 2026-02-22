@@ -20,6 +20,7 @@ export interface BasesKanbanSettings {
   // Card Display
   cardTitleSource: "basename" | "filename" | "path";
   cardTitleMaxLength: number;
+  cardTitleColor: string;
   propertyValueSeparator: string;
   tagPropertySuffix: string;
 
@@ -61,6 +62,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   // Card Display
   cardTitleSource: "basename",
   cardTitleMaxLength: 60,
+  cardTitleColor: "var(--text-normal)",
   propertyValueSeparator: ", ",
   tagPropertySuffix: ".tags",
 
@@ -160,6 +162,22 @@ export class KanbanSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings.cardTitleMaxLength = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Card title color")
+      .setDesc(
+        "CSS color value for card titles (for example: var(--text-normal), #1f2937, rgb(31, 41, 55))",
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("var(--text-normal)")
+          .setValue(this.plugin.settings.cardTitleColor)
+          .onChange(async (value) => {
+            this.plugin.settings.cardTitleColor =
+              value || DEFAULT_SETTINGS.cardTitleColor;
             await this.plugin.saveSettings();
           }),
       );
