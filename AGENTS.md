@@ -171,6 +171,7 @@ src/
 ### View Lifecycle
 
 - `onDataUpdated()` triggers renders when data changes
+- Plugin setting changes do not trigger `onDataUpdated()`; notify live `KanbanView` instances from `saveSettings()` for immediate visual updates
 - Use `skipNextDataUpdateRender` flag to prevent redundant renders after drop operations
 - Use session storage for scroll position persistence
 - Column scroll restoration is session-scoped (`kanban-col-scroll-${viewSessionId}-${columnKey}`)
