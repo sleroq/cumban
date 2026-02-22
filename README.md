@@ -4,15 +4,22 @@
 
 ## Features
 
-- Kanban view for Bases with drag-and-drop cards between columns
-- Group by any property to organize cards (status, priority, tags, etc.)
-- Drag column headers to reorder columns
-- Create new cards from column headers with auto-filled properties
-- Multi-select cards (Shift/Cmd/Ctrl + click) and batch move or trash
+- Inline editing of properties on the cards with suggestions
 - Custom backgrounds with brightness/blur controls
-- Tag styling with consistent colors based on tag name
 - Integration with [Pretty Properties](https://github.com/anareaty/pretty-properties) for user-defined tag colors
-- Wiki links render as clickable on cards
+- Drag column headers to reorder columns
+- Tag styling with consistent colors based on tag name
+- Rendering of any selected properties
+- Multi-select cards (Shift/Cmd/Ctrl + click) and batch move between the columns, reorder or trash
+- Group by any property to organize cards (status, priority, tags, etc.)
+- Pin columns so they stay even when there are no cards
+
+## Planned Features
+
+- Horizontal groups
+- Card blockers
+- Multi-card editing of properties
+- Card covers
 
 ## Installation
 
