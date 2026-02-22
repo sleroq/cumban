@@ -1,5 +1,5 @@
 {
-  "name": "bases-kanban",
+  "name": "cumban",
   "version": "1.0.0",
   "description": "Kanban view for Obsidian Bases.",
   "main": "main.js",

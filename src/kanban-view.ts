@@ -86,7 +86,7 @@ import {
 import type { KanbanCallbacks } from "./kanban-view/actions";
 
 export class KanbanView extends BasesView {
-  type = "kanban";
+  type = "cumban";
   private readonly rootEl: HTMLElement;
   private readonly mutationService: KanbanMutationService;
   private readonly plugin: BasesKanbanPlugin;
