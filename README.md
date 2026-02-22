@@ -15,17 +15,9 @@
 
 ## Installation
 
-1. Clone this repository into your Obsidian plugins directory:
-   ```bash
-   cd /path/to/your/vault/.obsidian/plugins
-   git clone https://github.com/sleroq/bases-kanban bases-kanban
-   ```
+1. Download cumban.zip from the [latest release](https://github.com/sleroq/bases-kanban/releases)
 
-2. Navigate to the plugin directory and build:
-   ```bash
-   cd bases-kanban
-   bun build
-   ```
+2. Place it in .obsidian/plugins/ directory inside our your obsidian vault
 
 3. Enable the plugin in Obsidian:
    - Open Obsidian Settings
