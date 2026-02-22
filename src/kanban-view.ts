@@ -1232,14 +1232,33 @@ export class KanbanView extends BasesView {
     scrollLeft: number,
     scrollTop: number,
   ): void {
+    const configAtSchedule = this.config;
+    const sessionIdAtSchedule = this.viewSessionId;
+
     logScrollEvent("Debounced scroll save triggered", {
       scrollLeft,
       scrollTop,
+      sessionId: `${sessionIdAtSchedule.slice(0, 8)}...`,
     });
     if (this.scrollSaveTimeout !== null) {
       window.clearTimeout(this.scrollSaveTimeout);
     }
     this.scrollSaveTimeout = window.setTimeout(() => {
+      const configChanged = this.config !== configAtSchedule;
+      const sessionChanged = this.viewSessionId !== sessionIdAtSchedule;
+      const viewUnavailable = this.svelteApp === null || !this.rootEl.isConnected;
+      if (configChanged || sessionChanged || viewUnavailable) {
+        logScrollEvent("Skipping stale debounced scroll save", {
+          configChanged,
+          sessionChanged,
+          viewUnavailable,
+          scheduledSessionId: `${sessionIdAtSchedule.slice(0, 8)}...`,
+          currentSessionId: `${this.viewSessionId.slice(0, 8)}...`,
+        });
+        this.scrollSaveTimeout = null;
+        return;
+      }
+
       logScrollEvent("Executing debounced scroll save");
       saveBoardScrollState(
         (key, value) => this.config?.set(key, value),

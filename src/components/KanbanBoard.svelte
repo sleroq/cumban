@@ -39,6 +39,8 @@
     }: Props = $props();
 
     let boardEl: HTMLElement | null = $state(null);
+    let suppressScrollEvents = $state(true);
+    let clearSuppressionRafId: number | null = null;
 
     // Create unified drag state at board level
     const dragState = createKanbanDragState();
@@ -62,7 +64,7 @@
     setContext(KANBAN_BOARD_CONTEXT_KEY, boardContextValue);
 
     function handleBoardScroll(): void {
-        if (boardEl === null) return;
+        if (boardEl === null || suppressScrollEvents) return;
         callbacks.board.scroll(boardEl.scrollLeft, boardEl.scrollTop);
     }
 
@@ -145,13 +147,28 @@
         if (boardEl === null) {
             return;
         }
+
+        suppressScrollEvents = true;
         boardEl.scrollLeft = initialBoardScrollLeft;
         boardEl.scrollTop = initialBoardScrollTop;
+
+        clearSuppressionRafId = requestAnimationFrame(() => {
+            clearSuppressionRafId = requestAnimationFrame(() => {
+                suppressScrollEvents = false;
+                clearSuppressionRafId = null;
+            });
+        });
+
         // Use passive listener for better scroll performance
         boardEl.addEventListener("scroll", handleBoardScroll, {
             passive: true,
         });
         return () => {
+            if (clearSuppressionRafId !== null) {
+                cancelAnimationFrame(clearSuppressionRafId);
+                clearSuppressionRafId = null;
+            }
+            suppressScrollEvents = true;
             boardEl?.removeEventListener("scroll", handleBoardScroll);
         };
     });
