@@ -40,7 +40,7 @@ export function getKanbanViewOptions() {
       displayName: "Background image",
       type: "text" as const,
       default: "",
-      placeholder: "https://... or vault/path.png",
+      placeholder: "https://... (loads remote URL) or vault/path.png",
     },
     {
       key: BACKGROUND_BRIGHTNESS_OPTION_KEY,

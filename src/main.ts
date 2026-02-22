@@ -16,7 +16,7 @@ export default class BasesKanbanPlugin extends Plugin {
     this.addSettingTab(new KanbanSettingTab(this.app, this));
 
     this.registerBasesView("cumban", {
-      name: "Cumban",
+      name: "Bases Kanban",
       icon: "lucide-kanban",
       factory: (controller, containerEl) =>
         new KanbanView(controller, containerEl, this),
