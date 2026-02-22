@@ -13,7 +13,7 @@
   "cardTitleColor": "var(--text-normal)",
   "propertyValueSeparator": ", ",
   "tagPropertySuffix": ".tags",
-  "columnNameMaxLength": 40,
+  "columnHeaderWidth": 150,
   "tagSaturation": 80,
   "tagLightness": 60,
   "tagAlpha": 0.5,
@@ -22,5 +22,7 @@
   "tagTextColor": "rgba(0, 0, 0, 0.6)",
   "backgroundBrightness": 45,
   "backgroundBlur": 0,
-  "columnTransparency": 100
+  "columnTransparency": 100,
+  "columnBlur": 8,
+  "columnNameMaxLength": 40
 }
