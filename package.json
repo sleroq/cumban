@@ -9,6 +9,7 @@
     "build": "bun run typecheck && bun esbuild.config.mjs production",
     "lint": "eslint ./src",
     "svelte-check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "bun test tests",
     "version:bump": "node version-bump.mjs",
     "version:patch": "node version-bump.mjs patch",
     "version:minor": "node version-bump.mjs minor",

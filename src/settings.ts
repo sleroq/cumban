@@ -41,6 +41,10 @@ export interface BasesKanbanSettings {
   backgroundBlur: number;
   columnTransparency: number;
   columnBlur: number;
+
+  // Migration
+  migrationGroupProperty: string;
+  migrationQueryProperty: string;
 }
 
 export const DEFAULT_SETTINGS: BasesKanbanSettings = {
@@ -84,6 +88,10 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   backgroundBlur: 0,
   columnTransparency: 100,
   columnBlur: 8,
+
+  // Migration
+  migrationGroupProperty: "status",
+  migrationQueryProperty: "legacyKanbanSource",
 };
 
 export class KanbanSettingTab extends PluginSettingTab {
@@ -481,6 +489,41 @@ export class KanbanSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings.columnBlur = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    // Migration Section
+    new Setting(containerEl).setName("Migration").setHeading();
+
+    new Setting(containerEl)
+      .setName("Migration group property")
+      .setDesc("Property used for lane name, used as Base groupBy")
+      .addText((text) =>
+        text
+          .setPlaceholder("status")
+          .setValue(this.plugin.settings.migrationGroupProperty)
+          .onChange(async (value) => {
+            this.plugin.settings.migrationGroupProperty =
+              value.trim().length === 0
+                ? DEFAULT_SETTINGS.migrationGroupProperty
+                : value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Migration query property")
+      .setDesc("Property used to filter all notes migrated from one board")
+      .addText((text) =>
+        text
+          .setPlaceholder("legacyKanbanSource")
+          .setValue(this.plugin.settings.migrationQueryProperty)
+          .onChange(async (value) => {
+            this.plugin.settings.migrationQueryProperty =
+              value.trim().length === 0
+                ? DEFAULT_SETTINGS.migrationQueryProperty
+                : value.trim();
             await this.plugin.saveSettings();
           }),
       );
