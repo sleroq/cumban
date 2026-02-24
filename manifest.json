@@ -1,7 +1,7 @@
 {
 	"id": "cumban",
 	"name": "Bases Kanban",
-	"version": "2.1.1",
+	"version": "2.2.0",
 	"minAppVersion": "1.11.0",
 	"description": "Kanban view for Bases.",
 	"author": "sleroq",
