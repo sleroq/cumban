@@ -14,6 +14,7 @@ import { mount, unmount } from "svelte";
 
 import type BasesKanbanPlugin from "./main";
 import {
+  logCacheEvent,
   logDebug,
   logDragEvent,
   logRenderEvent,
@@ -119,6 +120,7 @@ export class KanbanView extends BasesView {
   private pinnedColumnsCache: PinnedColumnsCache = { columns: null, raw: "" };
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
   private readonly viewModel: KanbanViewModel;
+  private readonly propertySuggestionsCache = new Map<BasesPropertyId, string[]>();
   // Cache of current rendered groups for data-driven operations
   // Avoids DOM queries for card order operations
   private currentRenderedGroups: RenderedGroup[] = [];
@@ -170,6 +172,7 @@ export class KanbanView extends BasesView {
   }
 
   onDataUpdated(): void {
+    this.propertySuggestionsCache.clear();
     this.render();
   }
 
@@ -584,6 +587,15 @@ export class KanbanView extends BasesView {
   }
 
   private getPropertySuggestions(propertyId: BasesPropertyId): string[] {
+    const cachedSuggestions = this.propertySuggestionsCache.get(propertyId);
+    if (cachedSuggestions !== undefined) {
+      logCacheEvent("Property suggestions cache hit", {
+        propertyId,
+        count: cachedSuggestions.length,
+      });
+      return cachedSuggestions;
+    }
+
     const propertyName = this.getNotePropertyName(propertyId);
     if (propertyName === null) {
       return [];
@@ -644,7 +656,15 @@ export class KanbanView extends BasesView {
       this.collectSuggestionValues(value, suggestions);
     }
 
-    return Array.from(suggestions).sort((a, b) => a.localeCompare(b));
+    const sortedSuggestions = Array.from(suggestions).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    this.propertySuggestionsCache.set(propertyId, sortedSuggestions);
+    logCacheEvent("Property suggestions cache miss", {
+      propertyId,
+      count: sortedSuggestions.length,
+    });
+    return sortedSuggestions;
   }
 
   private getPropertyCheckboxState(
@@ -758,6 +778,7 @@ export class KanbanView extends BasesView {
       mode,
       values,
     });
+    this.propertySuggestionsCache.delete(propertyId);
   }
 
   private async updateCardPropertyCheckbox(
@@ -781,6 +802,7 @@ export class KanbanView extends BasesView {
       propertyKey,
       checked,
     });
+    this.propertySuggestionsCache.delete(propertyId);
   }
 
   private getNotePropertyName(propertyId: BasesPropertyId): string | null {
@@ -1425,6 +1447,7 @@ export class KanbanView extends BasesView {
       this.scrollSaveTimeout = null;
     }
     this.unmountSvelteApp();
+    this.propertySuggestionsCache.clear();
     this.rootEl.empty();
     this.plugin.unregisterKanbanView(this);
   }

@@ -2,6 +2,7 @@ import type { BasesPropertyId } from "obsidian";
 import { get, writable, type Writable } from "svelte/store";
 
 import type { RenderedGroup } from "./render-pipeline";
+import { getColumnKey } from "./utils";
 
 export type KanbanViewModel = {
   selectedPathsStore: Writable<Set<string>>;
@@ -39,6 +40,63 @@ export function createKanbanViewModel(): KanbanViewModel {
   const draggingCardSourcePathStore = writable<string | null>(null);
   const draggingColumnSourceKeyStore = writable<string | null>(null);
 
+  function areStringArraysEqual(a: string[], b: string[]): boolean {
+    if (a === b) {
+      return true;
+    }
+    if (a.length !== b.length) {
+      return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function areRenderedGroupsEqual(
+    current: RenderedGroup[],
+    next: RenderedGroup[],
+  ): boolean {
+    if (current === next) {
+      return true;
+    }
+    if (current.length !== next.length) {
+      return false;
+    }
+
+    for (let i = 0; i < current.length; i++) {
+      const currentGroup = current[i];
+      const nextGroup = next[i];
+      if (currentGroup === undefined || nextGroup === undefined) {
+        return false;
+      }
+
+      if (getColumnKey(currentGroup.group.key) !== getColumnKey(nextGroup.group.key)) {
+        return false;
+      }
+
+      if (currentGroup.entries.length !== nextGroup.entries.length) {
+        return false;
+      }
+
+      for (let entryIndex = 0; entryIndex < currentGroup.entries.length; entryIndex++) {
+        const currentEntry = currentGroup.entries[entryIndex];
+        const nextEntry = nextGroup.entries[entryIndex];
+        if (
+          currentEntry === undefined ||
+          nextEntry === undefined ||
+          currentEntry.file.path !== nextEntry.file.path
+        ) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
   return {
     selectedPathsStore,
     groupsStore,
@@ -54,9 +112,19 @@ export function createKanbanViewModel(): KanbanViewModel {
     },
 
     setBoardData({ groups, groupByProperty, selectedProperties }): void {
-      groupsStore.set(groups);
-      groupByPropertyStore.set(groupByProperty);
-      selectedPropertiesStore.set(selectedProperties);
+      const currentGroups = get(groupsStore);
+      if (!areRenderedGroupsEqual(currentGroups, groups)) {
+        groupsStore.set(groups);
+      }
+
+      if (get(groupByPropertyStore) !== groupByProperty) {
+        groupByPropertyStore.set(groupByProperty);
+      }
+
+      const currentSelectedProperties = get(selectedPropertiesStore);
+      if (!areStringArraysEqual(currentSelectedProperties, selectedProperties)) {
+        selectedPropertiesStore.set(selectedProperties);
+      }
     },
 
     setColumnScrollByKey(scrollByKey: Record<string, number>): void {

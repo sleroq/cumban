@@ -383,6 +383,10 @@
             },
             onChoose: (value: string) => {
                 addValue(value);
+                if (editingMode === "single") {
+                    void exitPropertyEditing(true);
+                    return;
+                }
                 queueMicrotask(() => {
                     propertyInputEl?.focus();
                 });
@@ -494,6 +498,11 @@
             const completedValue = activeSuggest?.completeSelectedSuggestion();
             if (completedValue !== undefined && completedValue !== null) {
                 evt.preventDefault();
+                if (editingMode === "single") {
+                    addValue(completedValue);
+                    void exitPropertyEditing(true);
+                    return;
+                }
                 editInput = completedValue;
                 queueMicrotask(() => {
                     if (propertyInputEl === null) {
