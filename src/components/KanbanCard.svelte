@@ -71,6 +71,7 @@
     let hasChanges = $state(false);
     let isSaving = $state(false);
     let activeSuggest: PropertyValueEditorSuggest | null = null;
+    let optimisticPropertyValues: Record<string, unknown> = $state({});
 
     const filePath = $derived(entry.file.path);
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
@@ -413,6 +414,37 @@
         isSaving = false;
     }
 
+    function getDisplayPropertyRawValue(propertyId: BasesPropertyId): unknown {
+        if (
+            Object.prototype.hasOwnProperty.call(
+                optimisticPropertyValues,
+                propertyId,
+            )
+        ) {
+            return optimisticPropertyValues[propertyId];
+        }
+
+        return entry.getValue(propertyId);
+    }
+
+    function setOptimisticPropertyValues(
+        propertyId: BasesPropertyId,
+        mode: PropertyEditorMode,
+        values: string[],
+    ): void {
+        const nextValue: unknown =
+            mode === "single"
+                ? (values[0] ?? null)
+                : values.length === 0
+                  ? null
+                  : [...values];
+
+        optimisticPropertyValues = {
+            ...optimisticPropertyValues,
+            [propertyId]: nextValue,
+        };
+    }
+
     async function exitPropertyEditing(save: boolean): Promise<void> {
         if (editingPropertyId === null || editingMode === null) {
             return;
@@ -432,6 +464,7 @@
                     mode,
                     editingValues,
                 );
+                setOptimisticPropertyValues(propertyId, mode, editingValues);
             } finally {
                 clearEditingState();
             }
@@ -905,7 +938,7 @@
     {#if propertiesToDisplay.length > 0}
         <div class="bases-kanban-card-properties">
             {#each propertiesToDisplay as propertyId (propertyId)}
-                {@const rawValue = entry.getValue(propertyId)}
+                {@const rawValue = getDisplayPropertyRawValue(propertyId)}
                 {@const values = getPropertyValues(rawValue)}
                 {@const mode = callbacks.card.getPropertyEditorMode(propertyId)}
                 {@const propertyType =
@@ -932,10 +965,11 @@
                             )}
                     >
                         {#if isCheckboxProperty}
-                            {@const checked = callbacks.card.getPropertyCheckboxState(
-                                filePath,
-                                propertyId,
-                            )}
+                            {@const checked =
+                                callbacks.card.getPropertyCheckboxState(
+                                    filePath,
+                                    propertyId,
+                                )}
                             <div class="bases-kanban-checkbox-row">
                                 <span class="bases-kanban-property-name">
                                     {getPropertyDisplayName(propertyId)}
@@ -992,7 +1026,7 @@
                                                     null}
                                                 data-href={editableLinkInfo?.target}
                                                 draggable={editableLinkInfo !==
-                                                null}
+                                                    null}
                                             >
                                                 <span
                                                     >{editableLinkInfo?.display ??
