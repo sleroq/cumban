@@ -14,7 +14,6 @@ import { mount, unmount } from "svelte";
 
 import type BasesKanbanPlugin from "./main";
 import {
-  logCacheEvent,
   logDebug,
   logDragEvent,
   logRenderEvent,
@@ -120,7 +119,6 @@ export class KanbanView extends BasesView {
   private pinnedColumnsCache: PinnedColumnsCache = { columns: null, raw: "" };
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
   private readonly viewModel: KanbanViewModel;
-  private readonly propertySuggestionsCache = new Map<BasesPropertyId, string[]>();
   // Cache of current rendered groups for data-driven operations
   // Avoids DOM queries for card order operations
   private currentRenderedGroups: RenderedGroup[] = [];
@@ -172,7 +170,6 @@ export class KanbanView extends BasesView {
   }
 
   onDataUpdated(): void {
-    this.propertySuggestionsCache.clear();
     this.render();
   }
 
@@ -347,7 +344,6 @@ export class KanbanView extends BasesView {
       target: this.rootEl,
       props: {
         app: this.app as App,
-        rootEl: this.rootEl,
         // Static props that don't change
         selectedPathsStore: this.viewModel.selectedPathsStore,
         initialBoardScrollLeft: initialBoardScroll.left,
@@ -378,6 +374,8 @@ export class KanbanView extends BasesView {
         callbacks,
       },
     });
+
+    this.applyBackgroundStyles();
   }
 
   private updateSvelteAppProps(
@@ -471,6 +469,9 @@ export class KanbanView extends BasesView {
       ".bases-kanban-background",
     );
     if (backgroundEl !== null) {
+      backgroundEl.style.display = styles.hasImage ? "block" : "none";
+      backgroundEl.style.backgroundImage =
+        styles.imageUrl === null ? "none" : `url("${styles.imageUrl}")`;
       backgroundEl.style.filter = styles.backgroundFilter;
     }
   }
@@ -587,15 +588,6 @@ export class KanbanView extends BasesView {
   }
 
   private getPropertySuggestions(propertyId: BasesPropertyId): string[] {
-    const cachedSuggestions = this.propertySuggestionsCache.get(propertyId);
-    if (cachedSuggestions !== undefined) {
-      logCacheEvent("Property suggestions cache hit", {
-        propertyId,
-        count: cachedSuggestions.length,
-      });
-      return cachedSuggestions;
-    }
-
     const propertyName = this.getNotePropertyName(propertyId);
     if (propertyName === null) {
       return [];
@@ -656,15 +648,7 @@ export class KanbanView extends BasesView {
       this.collectSuggestionValues(value, suggestions);
     }
 
-    const sortedSuggestions = Array.from(suggestions).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    this.propertySuggestionsCache.set(propertyId, sortedSuggestions);
-    logCacheEvent("Property suggestions cache miss", {
-      propertyId,
-      count: sortedSuggestions.length,
-    });
-    return sortedSuggestions;
+    return Array.from(suggestions).sort((a, b) => a.localeCompare(b));
   }
 
   private getPropertyCheckboxState(
@@ -778,7 +762,6 @@ export class KanbanView extends BasesView {
       mode,
       values,
     });
-    this.propertySuggestionsCache.delete(propertyId);
   }
 
   private async updateCardPropertyCheckbox(
@@ -802,7 +785,6 @@ export class KanbanView extends BasesView {
       propertyKey,
       checked,
     });
-    this.propertySuggestionsCache.delete(propertyId);
   }
 
   private getNotePropertyName(propertyId: BasesPropertyId): string | null {
@@ -1190,10 +1172,9 @@ export class KanbanView extends BasesView {
       return;
     }
 
-    const columnOrder = this.getColumnOrderFromConfig();
-    const groups = mergeGroupsByColumnKey(this.data?.groupedData ?? []);
-    const orderedGroups = sortGroupsByColumnOrder(groups, columnOrder);
-    const orderedKeys = orderedGroups.map((g) => getColumnKey(g.key));
+    const orderedKeys = this.currentRenderedGroups.map(({ group }) =>
+      getColumnKey(group.key),
+    );
     const sourceIndex = orderedKeys.indexOf(sourceColumnKey);
     const targetIndex = orderedKeys.indexOf(targetColumnKey);
     if (sourceIndex === -1 || targetIndex === -1) {
@@ -1447,7 +1428,6 @@ export class KanbanView extends BasesView {
       this.scrollSaveTimeout = null;
     }
     this.unmountSvelteApp();
-    this.propertySuggestionsCache.clear();
     this.rootEl.empty();
     this.plugin.unregisterKanbanView(this);
   }

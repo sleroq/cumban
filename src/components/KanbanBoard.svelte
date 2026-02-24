@@ -41,6 +41,10 @@
     let boardEl: HTMLElement | null = $state(null);
     let suppressScrollEvents = $state(true);
     let clearSuppressionRafId: number | null = null;
+    let activePropertyEditorFilePath: string | null = null;
+    let activePropertyEditorClose: (() => Promise<void>) | null = null;
+    let activePropertyEditorContainsTarget: ((target: Node) => boolean) | null =
+        null;
 
     // Create unified drag state at board level
     const dragState = createKanbanDragState();
@@ -60,8 +64,39 @@
         get callbacks() {
             return callbacks;
         },
+        setActivePropertyEditor(
+            filePath: string,
+            close: () => Promise<void>,
+            isTargetInsideEditor: (target: Node) => boolean,
+        ) {
+            activePropertyEditorFilePath = filePath;
+            activePropertyEditorClose = close;
+            activePropertyEditorContainsTarget = isTargetInsideEditor;
+        },
+        clearActivePropertyEditor(filePath: string) {
+            if (activePropertyEditorFilePath !== filePath) {
+                return;
+            }
+            activePropertyEditorFilePath = null;
+            activePropertyEditorClose = null;
+            activePropertyEditorContainsTarget = null;
+        },
     });
     setContext(KANBAN_BOARD_CONTEXT_KEY, boardContextValue);
+
+    function handleDocumentMouseDown(evt: MouseEvent): void {
+        const target = evt.target;
+        if (!(target instanceof Node)) {
+            return;
+        }
+        if (
+            activePropertyEditorContainsTarget !== null &&
+            activePropertyEditorContainsTarget(target)
+        ) {
+            return;
+        }
+        void activePropertyEditorClose?.();
+    }
 
     function handleBoardScroll(): void {
         if (boardEl === null || suppressScrollEvents) return;
@@ -163,6 +198,7 @@
         boardEl.addEventListener("scroll", handleBoardScroll, {
             passive: true,
         });
+        document.addEventListener("mousedown", handleDocumentMouseDown, true);
         return () => {
             if (clearSuppressionRafId !== null) {
                 cancelAnimationFrame(clearSuppressionRafId);
@@ -170,6 +206,14 @@
             }
             suppressScrollEvents = true;
             boardEl?.removeEventListener("scroll", handleBoardScroll);
+            document.removeEventListener(
+                "mousedown",
+                handleDocumentMouseDown,
+                true,
+            );
+            activePropertyEditorFilePath = null;
+            activePropertyEditorClose = null;
+            activePropertyEditorContainsTarget = null;
         };
     });
 </script>

@@ -64,11 +64,10 @@ export function resolveBackgroundStyles(
   app: App,
   config: BackgroundConfig,
 ): ResolvedBackgroundStyles {
-  // Resolve image URL
-  let imageUrl: string | null = null;
-  if (typeof config.imageInput === "string" && config.imageInput.length > 0) {
-    imageUrl = resolveBackgroundInput(app, config.imageInput);
-  }
+  const imageUrl =
+    typeof config.imageInput === "string"
+      ? resolveBackgroundInput(app, config.imageInput)
+      : null;
 
   // Get configuration values
   const brightness = getConfigNumber(config.brightness, 100, 0, 100);
@@ -87,38 +86,5 @@ export function resolveBackgroundStyles(
     backgroundFilter: `blur(${blur}px) brightness(${brightness}%)`,
     columnTransparencyValue: columnTransparency / 100,
     columnBlurValue: columnBlur,
-  };
-}
-
-/**
- * Preload a background image and apply it to an element when ready.
- * Returns a cleanup function to cancel the load operation.
- */
-export function preloadBackgroundImage(
-  imageUrl: string,
-  bgEl: HTMLElement,
-  onLoad?: () => void,
-  onError?: () => void,
-): () => void {
-  let cancelled = false;
-  const image = new Image();
-
-  image.onload = () => {
-    if (cancelled) return;
-    bgEl.style.backgroundImage = `url("${imageUrl}")`;
-    onLoad?.();
-  };
-
-  image.onerror = () => {
-    if (cancelled) return;
-    console.error(`Failed to load background image: ${imageUrl}`);
-    onError?.();
-  };
-
-  image.src = imageUrl;
-
-  // Return cleanup function
-  return () => {
-    cancelled = true;
   };
 }

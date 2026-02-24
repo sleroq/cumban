@@ -17,7 +17,6 @@
 
     type Props = {
         app: App;
-        rootEl: HTMLElement;
         selectedPathsStore: Readable<Set<string>>;
         initialBoardScrollLeft: number;
         initialBoardScrollTop: number;
@@ -40,7 +39,6 @@
 
     let {
         app,
-        rootEl,
         selectedPathsStore,
         initialBoardScrollLeft,
         initialBoardScrollTop,
@@ -95,7 +93,7 @@
     const pinnedColumns = $derived($pinnedColumnsStore);
 </script>
 
-<KanbanBackground {app} {rootEl} config={backgroundConfig} />
+<KanbanBackground {app} config={backgroundConfig} />
 
 <KanbanBoard
     {groups}

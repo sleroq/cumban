@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy, onMount, getContext } from "svelte";
+    import { getContext, onDestroy } from "svelte";
     import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
     import type { PropertyEditorMode } from "../kanban-view/actions";
     import type { PropertyType } from "../kanban-view/actions";
@@ -357,6 +357,11 @@
         originalValues = [...values];
         editInput = mode === "single" ? (values[0] ?? "") : "";
         hasChanges = false;
+        boardContext.setActivePropertyEditor(
+            filePath,
+            () => exitPropertyEditing(true),
+            isTargetInsidePropertyEditor,
+        );
         queueMicrotask(() => {
             if (mode === "single" && propertyInputEl !== null) {
                 propertyInputEl.textContent = editInput;
@@ -375,6 +380,7 @@
         activeSuggest = new PropertyValueEditorSuggest({
             app,
             inputEl: propertyInputEl,
+            sourcePath: filePath,
             getItems: (query: string) => {
                 if (editingPropertyId === null) {
                     return [];
@@ -397,6 +403,7 @@
     function clearEditingState(): void {
         activeSuggest?.close();
         activeSuggest = null;
+        boardContext.clearActivePropertyEditor(filePath);
         editingPropertyId = null;
         editingMode = null;
         editingValues = [];
@@ -432,6 +439,22 @@
         }
 
         clearEditingState();
+    }
+
+    function isTargetInsidePropertyEditor(target: Node): boolean {
+        const editorEl = propertyEditorEl;
+        if (editorEl !== null && editorEl.contains(target)) {
+            return true;
+        }
+
+        if (
+            target instanceof HTMLElement &&
+            target.closest(".suggestion-container") !== null
+        ) {
+            return true;
+        }
+
+        return false;
     }
 
     async function switchPropertyEditing(
@@ -572,43 +595,8 @@
         }
     }
 
-    onMount(() => {
-        const handleDocumentMouseDown = (evt: MouseEvent): void => {
-            if (editingPropertyId === null) {
-                return;
-            }
-
-            const target = evt.target;
-            if (!(target instanceof Node)) {
-                return;
-            }
-
-            const editorEl = propertyEditorEl;
-            if (editorEl !== null && editorEl.contains(target)) {
-                return;
-            }
-
-            if (
-                target instanceof HTMLElement &&
-                target.closest(".suggestion-container") !== null
-            ) {
-                return;
-            }
-
-            void exitPropertyEditing(true);
-        };
-
-        document.addEventListener("mousedown", handleDocumentMouseDown, true);
-        return () => {
-            document.removeEventListener(
-                "mousedown",
-                handleDocumentMouseDown,
-                true,
-            );
-        };
-    });
-
     onDestroy(() => {
+        boardContext.clearActivePropertyEditor(filePath);
         activeSuggest?.close();
         activeSuggest = null;
     });
@@ -719,6 +707,40 @@
         evt.preventDefault();
         evt.stopPropagation();
         callbacks.card.linkClick(evt, target);
+    }
+
+    type EditableLinkInfo = {
+        target: string;
+        display: string;
+    };
+
+    function getEditableLinkInfo(value: string): EditableLinkInfo | null {
+        const trimmedValue = value.trim();
+        if (trimmedValue.length === 0) {
+            return null;
+        }
+
+        const wikiLinks = parseWikiLinks(trimmedValue);
+        if (
+            wikiLinks.length === 1 &&
+            trimmedValue.startsWith("[[") &&
+            trimmedValue.endsWith("]]")
+        ) {
+            return wikiLinks[0];
+        }
+
+        const linkedFile = app.metadataCache.getFirstLinkpathDest(
+            trimmedValue,
+            filePath,
+        );
+        if (linkedFile !== null) {
+            return {
+                target: trimmedValue,
+                display: trimmedValue,
+            };
+        }
+
+        return null;
     }
 
     function getExternalLinkHref(value: string): string | null {
@@ -950,6 +972,9 @@
                                         {@const pillClass = isTagProperty
                                             ? "multi-select-pill theme-color"
                                             : "multi-select-pill"}
+                                        {@const editableLinkInfo = isTagProperty
+                                            ? null
+                                            : getEditableLinkInfo(value)}
                                         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                                         <div
                                             class={pillClass}
@@ -963,8 +988,36 @@
                                         >
                                             <div
                                                 class="multi-select-pill-content"
+                                                class:internal-link={editableLinkInfo !==
+                                                    null}
+                                                data-href={editableLinkInfo?.target}
+                                                draggable={editableLinkInfo !==
+                                                null}
                                             >
-                                                <span>{value}</span>
+                                                <span
+                                                    >{editableLinkInfo?.display ??
+                                                        value}</span
+                                                >
+                                                {#if editableLinkInfo !== null}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="24"
+                                                        height="24"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        class="svg-icon lucide-link"
+                                                        aria-hidden="true"
+                                                        ><path
+                                                            d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                                                        ></path><path
+                                                            d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                                                        ></path></svg
+                                                    >
+                                                {/if}
                                             </div>
                                             <div
                                                 class="multi-select-pill-remove-button"
