@@ -2,7 +2,8 @@ import type { LegacyKanbanBoard, LegacyKanbanCard, LegacyKanbanLane } from "./ty
 
 const HEADING_REGEX = /^##\s+(.+)$/;
 const CARD_REGEX = /^\s*-\s*\[[ xX]\]\s+(.+)$/;
-const WIKILINK_REGEX = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/;
+const FULL_WIKILINK_REGEX =
+  /^\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]$/;
 
 function normalizeTitle(cardText: string): string {
   const withoutLinks = cardText.replace(
@@ -28,7 +29,7 @@ function parseCard(line: string): LegacyKanbanCard | null {
     return null;
   }
 
-  const linkMatch = text.match(WIKILINK_REGEX);
+  const linkMatch = text.match(FULL_WIKILINK_REGEX);
   const linkTarget = linkMatch === null ? null : linkMatch[1].trim();
 
   return {

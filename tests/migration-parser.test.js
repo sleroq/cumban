@@ -51,4 +51,14 @@ describe("parseLegacyKanbanMarkdown", () => {
     expect(result.lanes[0]?.cards[0]?.title).toBe("duplicated are great");
     expect(result.lanes[0]?.cards[0]?.text).toBe("duplicated are great\n\n\nmeow");
   });
+
+  test("does not treat embedded wikilinks as linked-note cards", () => {
+    const markdown = ["## todo", "", "- [ ] real [[partial]] link note"].join("\n");
+
+    const result = parseLegacyKanbanMarkdown(markdown);
+
+    expect(result.lanes[0]?.cards.length).toBe(1);
+    expect(result.lanes[0]?.cards[0]?.title).toBe("real partial link note");
+    expect(result.lanes[0]?.cards[0]?.linkTarget).toBeNull();
+  });
 });
