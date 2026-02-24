@@ -38,12 +38,21 @@ function parseCard(line: string): LegacyKanbanCard | null {
   };
 }
 
+function isIndentedContinuationLine(line: string): boolean {
+  return /^\s+\S/.test(line);
+}
+
+function normalizeContinuationLine(line: string): string {
+  return line.replace(/^\s+/, "").trimEnd();
+}
+
 export function parseLegacyKanbanMarkdown(markdown: string): LegacyKanbanBoard {
   const lines = markdown.split(/\r?\n/);
   const lanes: LegacyKanbanLane[] = [];
   let currentLane: LegacyKanbanLane | null = null;
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
     const headingMatch = line.match(HEADING_REGEX);
     if (headingMatch !== null) {
       currentLane = {
@@ -60,7 +69,46 @@ export function parseLegacyKanbanMarkdown(markdown: string): LegacyKanbanBoard {
 
     const card = parseCard(line);
     if (card !== null) {
+      const continuationLines: string[] = [];
+      let pendingBlankCount = 0;
+      let nextIndex = index + 1;
+
+      while (nextIndex < lines.length) {
+        const nextLine = lines[nextIndex] ?? "";
+
+        if (nextLine.match(HEADING_REGEX) !== null) {
+          break;
+        }
+
+        if (nextLine.match(CARD_REGEX) !== null) {
+          break;
+        }
+
+        if (nextLine.trim().length === 0) {
+          pendingBlankCount += 1;
+          nextIndex += 1;
+          continue;
+        }
+
+        if (!isIndentedContinuationLine(nextLine)) {
+          break;
+        }
+
+        while (pendingBlankCount > 0) {
+          continuationLines.push("");
+          pendingBlankCount -= 1;
+        }
+
+        continuationLines.push(normalizeContinuationLine(nextLine));
+        nextIndex += 1;
+      }
+
+      if (continuationLines.length > 0) {
+        card.text = `${card.text}\n${continuationLines.join("\n")}`;
+      }
+
       currentLane.cards.push(card);
+      index = nextIndex - 1;
     }
   }
 

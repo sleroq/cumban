@@ -32,4 +32,23 @@ describe("parseLegacyKanbanMarkdown", () => {
     expect(result.lanes[0]?.cards[0]?.title).toBe("plain task");
     expect(result.lanes[1]?.cards[0]?.linkTarget).toBe("Existing Note");
   });
+
+  test("parses multiline card content from indented lines", () => {
+    const markdown = [
+      "## done",
+      "",
+      "- [ ] duplicated are great",
+      "\t",
+      "\t",
+      "\tmeow",
+      "",
+      "- [ ] another card",
+    ].join("\n");
+
+    const result = parseLegacyKanbanMarkdown(markdown);
+
+    expect(result.lanes[0]?.cards.length).toBe(2);
+    expect(result.lanes[0]?.cards[0]?.title).toBe("duplicated are great");
+    expect(result.lanes[0]?.cards[0]?.text).toBe("duplicated are great\n\n\nmeow");
+  });
 });
