@@ -42,16 +42,19 @@
 
 /* Column with transparency support */
 .bases-kanban-column {
-	flex: 0 0 var(--bases-kanban-column-width, 280px);
+	flex: none;
+	width: var(--bases-kanban-column-width, 280px);
+	min-width: 0;
+	max-width: var(--bases-kanban-column-width, 280px);
 	background: color-mix(in srgb, var(--background-secondary), transparent calc(100% - var(--bases-kanban-column-transparency, 1) * 100%));
 	border-radius: var(--radius-m);
 	display: flex;
 	flex-direction: column;
-	overflow: visible;
+	overflow: hidden;
 	position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(var(--bases-kanban-column-blur, 8px));
-  border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+	backdrop-filter: blur(var(--bases-kanban-column-blur, 8px));
+	border: 1px solid var(--background-modifier-border);
 }
 
 .bases-kanban-placeholder {
@@ -107,6 +110,7 @@
 	gap: var(--size-2-2);
 	padding: var(--size-4-2) var(--size-4-3);
 	border-bottom: 1px solid var(--background-modifier-border);
+	min-width: 0;
 }
 
 .bases-kanban-column-handle {
@@ -251,6 +255,9 @@
 	flex-direction: column;
 	gap: var(--size-4-2);
 	flex: 1;
+	min-width: 0;
+	overflow-x: hidden;
+	overflow-y: auto;
 }
 
 .bases-kanban-card {
@@ -261,6 +268,9 @@
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
 	transition: box-shadow 0.15s ease, transform 0.1s ease;
 	position: relative;
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
 }
 
 .bases-kanban-card:hover {
