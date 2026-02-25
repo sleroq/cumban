@@ -150,6 +150,17 @@
         return value;
     }
 
+    function getTagDisplayValue(value: string, isTagProperty: boolean): string {
+        if (!isTagProperty) {
+            return value;
+        }
+        const normalizedTagValue = normalizeTagValue(value);
+        if (normalizedTagValue.length === 0) {
+            return value;
+        }
+        return `#${normalizedTagValue}`;
+    }
+
     function getPrettyTagStyleVars(
         value: string,
         isTagProperty: boolean,
@@ -1009,6 +1020,10 @@
                                         {@const editableLinkInfo = isTagProperty
                                             ? null
                                             : getEditableLinkInfo(value)}
+                                        {@const displayValue = getTagDisplayValue(
+                                            value,
+                                            isTagProperty,
+                                        )}
                                         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                                         <div
                                             class={pillClass}
@@ -1030,7 +1045,7 @@
                                             >
                                                 <span
                                                     >{editableLinkInfo?.display ??
-                                                        value}</span
+                                                        displayValue}</span
                                                 >
                                                 {#if editableLinkInfo !== null}
                                                     <svg
@@ -1121,8 +1136,12 @@
                             </div>
                         {:else if values !== null}
                             {#each values as value, i (i)}
-                                {@const truncatedValue = truncatePropertyValue(
+                                {@const displayValue = getTagDisplayValue(
                                     value,
+                                    isTagProperty,
+                                )}
+                                {@const truncatedValue = truncatePropertyValue(
+                                    displayValue,
                                     settings.propertyValueMaxLength,
                                 )}
                                 {@const links = parseWikiLinks(value)}
