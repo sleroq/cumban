@@ -98,6 +98,7 @@
 
 .bases-view.is-grouped {
 	scrollbar-gutter: auto !important;
+	padding: 0px;
 }
 
 .bases-kanban-column-header {
