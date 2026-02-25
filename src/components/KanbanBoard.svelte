@@ -114,6 +114,12 @@
         callbacks.board.click();
     }
 
+    function handleAddColumnClick(evt: MouseEvent): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        callbacks.board.addColumn();
+    }
+
     // Wrapper functions that include drag state
     function handleStartColumnDrag(evt: DragEvent, columnKey: string): void {
         dragState.startColumnDrag(columnKey, evt.dataTransfer);
@@ -255,4 +261,13 @@
             onCardDrop={handleCardDrop}
         />
     {/each}
+    <button
+        type="button"
+        class="bases-kanban-add-column-button"
+        aria-label="Add new column"
+        title="Add new column"
+        onclick={handleAddColumnClick}
+    >
+        +
+    </button>
 </div>

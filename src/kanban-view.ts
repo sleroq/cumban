@@ -361,6 +361,7 @@ export class KanbanView extends BasesView {
           this.debouncedSaveBoardScrollPosition(scrollLeft, scrollTop),
         keyDown: (evt: KeyboardEvent) => this.handleKeyDown(evt),
         click: () => this.clearSelection(),
+        addColumn: () => this.promptAndAddPinnedEmptyColumn(),
       },
     };
 
@@ -1288,6 +1289,122 @@ export class KanbanView extends BasesView {
       isPinned: pinnedSet.has(columnKey),
       totalPinned: newPinned.length,
     });
+  }
+
+  private promptAndAddPinnedEmptyColumn(): void {
+    const defaultColumnName = this.getUniqueColumnKey("New column");
+    void this.openNewColumnNameModal(defaultColumnName).then((columnName) => {
+      if (columnName === null) {
+        return;
+      }
+      this.addPinnedEmptyColumn(columnName);
+    });
+  }
+
+  private openNewColumnNameModal(
+    defaultColumnName: string,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const modal = new Modal(this.app as App);
+      let resolved = false;
+
+      const finish = (value: string | null): void => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        resolve(value);
+      };
+
+      modal.titleEl.setText("New column");
+
+      const inputEl = modal.contentEl.createEl("input", {
+        type: "text",
+        value: defaultColumnName,
+      });
+      inputEl.style.width = "100%";
+      inputEl.style.marginBottom = "12px";
+
+      const buttonContainer = modal.contentEl.createDiv({
+        cls: "modal-button-container",
+      });
+
+      const cancelButton = buttonContainer.createEl("button", {
+        text: this.plugin.settings.cancelButtonText,
+        cls: "mod-secondary",
+      });
+      cancelButton.addEventListener("click", () => {
+        modal.close();
+      });
+
+      const createButton = buttonContainer.createEl("button", {
+        text: "Create",
+        cls: "mod-cta",
+      });
+
+      const submit = (): void => {
+        const requestedName = inputEl.value.trim();
+        finish(requestedName.length > 0 ? requestedName : defaultColumnName);
+        modal.close();
+      };
+
+      createButton.addEventListener("click", submit);
+      inputEl.addEventListener("keydown", (evt) => {
+        if (evt.key !== "Enter") {
+          return;
+        }
+        evt.preventDefault();
+        submit();
+      });
+
+      modal.onOpen = () => {
+        inputEl.focus();
+        inputEl.select();
+      };
+
+      modal.onClose = () => {
+        modal.contentEl.empty();
+        finish(null);
+      };
+
+      modal.open();
+    });
+  }
+
+  private getUniqueColumnKey(baseColumnKey: string): string {
+    const existingColumnKeys = new Set<string>(
+      this.currentRenderedGroups.map(({ group }) => getColumnKey(group.key)),
+    );
+    for (const pinnedColumnKey of this.getPinnedColumnsFromConfig()) {
+      existingColumnKeys.add(pinnedColumnKey);
+    }
+
+    let nextColumnKey = baseColumnKey;
+    let suffix = 2;
+    while (existingColumnKeys.has(nextColumnKey)) {
+      nextColumnKey = `${baseColumnKey} ${suffix}`;
+      suffix += 1;
+    }
+
+    return nextColumnKey;
+  }
+
+  private addPinnedEmptyColumn(baseColumnKey: string): void {
+    const nextColumnKey = this.getUniqueColumnKey(baseColumnKey);
+
+    const currentPinnedColumns = this.getPinnedColumnsFromConfig();
+    this.updatePinnedColumns([...currentPinnedColumns, nextColumnKey]);
+
+    const currentColumnOrder = this.getColumnOrderFromConfig();
+    if (
+      currentColumnOrder.length > 0 &&
+      !currentColumnOrder.includes(nextColumnKey)
+    ) {
+      this.updateColumnOrder([...currentColumnOrder, nextColumnKey]);
+    }
+
+    logDebug("PIN", `Added pinned empty column ${nextColumnKey}`);
+    this.render();
   }
 
   private injectPinnedEmptyColumns(

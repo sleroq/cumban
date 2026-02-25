@@ -50,6 +50,7 @@ export type KanbanBoardCallbacks = {
   scroll: (scrollLeft: number, scrollTop: number) => void;
   keyDown: (evt: KeyboardEvent) => void;
   click: () => void;
+  addColumn: () => void;
 };
 
 export type KanbanCallbacks = {

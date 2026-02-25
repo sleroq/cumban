@@ -76,6 +76,26 @@
 	padding: var(--size-4-3);
 }
 
+.bases-kanban-add-column-button {
+	flex: 0 0 auto;
+	align-self: flex-start;
+	width: 1.8rem;
+	padding: var(--size-2-2) 0;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: color-mix(in srgb, var(--background-secondary), transparent 30%);
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: var(--font-ui-large);
+	line-height: 1;
+}
+
+.bases-kanban-add-column-button:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+}
+
 .bases-view.is-grouped {
 	scrollbar-gutter: auto !important;
 }
