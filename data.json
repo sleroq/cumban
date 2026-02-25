@@ -4,6 +4,7 @@
   "enableAnimations": true,
   "scrollDebounceMs": 450,
   "trashShortcutKey": "Backspace",
+  "cardsPerBatch": 200,
   "addCardButtonText": "+",
   "trashMenuText": "Move to trash",
   "trashConfirmButtonText": "Move to trash",

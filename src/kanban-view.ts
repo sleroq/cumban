@@ -47,7 +47,6 @@ import {
   getSelectedProperties,
   getWritablePropertyKey,
   hasConfiguredGroupBy,
-  isSameGroupValue,
 } from "./kanban-view/utils";
 import { buildEntryIndexes, type EntryGroupLike } from "./kanban-view/indexing";
 import { KanbanMutationService } from "./kanban-view/mutations";
@@ -1986,18 +1985,6 @@ export class KanbanView extends BasesView {
 
     logDebug("DROP", "Local card order updated, calling mutation service");
 
-    const targetGroupValue = getTargetGroupValue(groupKey);
-    const hasGroupMutation = draggedPaths.some((path) => {
-      const entry = this.entryByPath.get(path);
-      if (entry === undefined) {
-        return false;
-      }
-      return !isSameGroupValue(
-        entry.getValue(groupByProperty),
-        targetGroupValue,
-      );
-    });
-
     await this.mutationService.handleDrop({
       groupByProperty,
       groupByPropertyKey: getWritablePropertyKey(groupByProperty),
@@ -2093,7 +2080,7 @@ export class KanbanView extends BasesView {
     this.cancelIncrementalLoad();
     this.viewModel.setAnimationsReady(false);
 
-    const CARDS_PER_BATCH = 100;
+    const CARDS_PER_BATCH = this.plugin.settings.cardsPerBatch;
     const numColumns = renderedGroups.length;
     if (numColumns === 0) {
       return;

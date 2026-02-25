@@ -10,6 +10,7 @@ export interface BasesKanbanSettings {
   enableAnimations: boolean;
   scrollDebounceMs: number;
   trashShortcutKey: string;
+  cardsPerBatch: number;
 
   // UI Text
   addCardButtonText: string;
@@ -58,6 +59,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   enableAnimations: true,
   scrollDebounceMs: 300,
   trashShortcutKey: "Backspace",
+  cardsPerBatch: 100,
 
   // UI Text
   addCardButtonText: "+",
@@ -264,6 +266,22 @@ export class KanbanSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings.scrollDebounceMs = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Cards per batch")
+      .setDesc(
+        "Number of cards to load per batch during incremental loading. Higher values load faster but may cause UI stutter.",
+      )
+      .addSlider((slider) =>
+        slider
+          .setLimits(20, 500, 20)
+          .setValue(this.plugin.settings.cardsPerBatch)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.cardsPerBatch = value;
             await this.plugin.saveSettings();
           }),
       );
