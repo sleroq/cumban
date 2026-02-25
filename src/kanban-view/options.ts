@@ -4,6 +4,7 @@ import {
   BACKGROUND_IMAGE_OPTION_KEY,
   COLUMN_BLUR_OPTION_KEY,
   COLUMN_ORDER_OPTION_KEY,
+  COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
   COLUMN_TRANSPARENCY_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
   PINNED_COLUMNS_OPTION_KEY,
@@ -77,6 +78,12 @@ export function getKanbanViewOptions() {
       min: 0,
       max: 20,
       step: 1,
+    },
+    {
+      key: COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
+      displayName: "Columns right to left",
+      type: "toggle" as const,
+      default: false,
     },
   ];
 }

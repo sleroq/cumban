@@ -28,6 +28,7 @@ import {
   BOARD_SCROLL_TOP_POSITION_KEY,
   COLUMN_BLUR_OPTION_KEY,
   COLUMN_ORDER_OPTION_KEY,
+  COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
   COLUMN_TRANSPARENCY_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
   NO_VALUE_COLUMN_KEY,
@@ -119,6 +120,7 @@ export class KanbanView extends BasesView {
   private pinnedColumnsCache: PinnedColumnsCache = { columns: null, raw: "" };
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
   private readonly viewModel: KanbanViewModel;
+  private columnsRightToLeft = false;
   // Cache of current rendered groups for data-driven operations
   // Avoids DOM queries for card order operations
   private currentRenderedGroups: RenderedGroup[] = [];
@@ -212,6 +214,7 @@ export class KanbanView extends BasesView {
       orderedGroups,
       localCardOrderByColumn,
     );
+    const columnsRightToLeft = this.getColumnsRightToLeftFromConfig();
 
     // Debug: Log first column's entry order
     if (renderedGroups.length > 0) {
@@ -240,8 +243,27 @@ export class KanbanView extends BasesView {
 
     if (this.svelteApp === null) {
       logRenderEvent("Mounting Svelte app for first render");
-      this.mountSvelteApp(renderedGroups, groupByProperty, selectedProperties);
+      this.mountSvelteApp(
+        renderedGroups,
+        groupByProperty,
+        selectedProperties,
+        columnsRightToLeft,
+      );
     } else {
+      if (this.columnsRightToLeft !== columnsRightToLeft) {
+        this.unmountSvelteApp();
+        this.rootEl.empty();
+        this.mountSvelteApp(
+          renderedGroups,
+          groupByProperty,
+          selectedProperties,
+          columnsRightToLeft,
+        );
+        logRenderEvent("Remounted Svelte app for columns direction change", {
+          columnsRightToLeft,
+        });
+        return;
+      }
       logRenderEvent("Updating Svelte app props (Svelte handles DOM diffing)");
       this.updateSvelteAppProps(
         renderedGroups,
@@ -257,6 +279,7 @@ export class KanbanView extends BasesView {
     renderedGroups: RenderedGroup[],
     groupByProperty: BasesPropertyId | null,
     selectedProperties: BasesPropertyId[],
+    columnsRightToLeft: boolean,
   ): void {
     // Get initial scroll positions for first mount
     const initialBoardScroll = this.getInitialBoardScroll();
@@ -365,6 +388,7 @@ export class KanbanView extends BasesView {
         columnBlur:
           (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
           this.plugin.settings.columnBlur,
+        columnsRightToLeft,
         // Reactive stores
         groupsStore: this.viewModel.groupsStore,
         groupByPropertyStore: this.viewModel.groupByPropertyStore,
@@ -374,6 +398,7 @@ export class KanbanView extends BasesView {
         callbacks,
       },
     });
+    this.columnsRightToLeft = columnsRightToLeft;
 
     this.applyBackgroundStyles();
   }
@@ -1230,6 +1255,10 @@ export class KanbanView extends BasesView {
     );
     this.pinnedColumnsCache = cache;
     return columns;
+  }
+
+  private getColumnsRightToLeftFromConfig(): boolean {
+    return this.config?.get(COLUMNS_RIGHT_TO_LEFT_OPTION_KEY) === true;
   }
 
   private updatePinnedColumns(pinnedColumns: string[]): void {

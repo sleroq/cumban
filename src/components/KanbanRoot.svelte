@@ -26,6 +26,7 @@
         backgroundBlur: number;
         columnTransparency: number;
         columnBlur: number;
+        columnsRightToLeft: boolean;
         // Store-based reactive data
         groupsStore: Readable<
             Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>
@@ -48,6 +49,7 @@
         backgroundBlur,
         columnTransparency,
         columnBlur,
+        columnsRightToLeft,
         groupsStore,
         groupByPropertyStore,
         selectedPropertiesStore,
@@ -103,5 +105,6 @@
     {initialBoardScrollTop}
     {columnScrollByKey}
     {pinnedColumns}
+    {columnsRightToLeft}
     {callbacks}
 />

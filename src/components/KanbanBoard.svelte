@@ -24,6 +24,7 @@
         initialBoardScrollTop: number;
         columnScrollByKey: Record<string, number>;
         pinnedColumns: Set<string>;
+        columnsRightToLeft: boolean;
         callbacks: KanbanCallbacks;
     };
 
@@ -35,6 +36,7 @@
         initialBoardScrollTop,
         columnScrollByKey,
         pinnedColumns,
+        columnsRightToLeft,
         callbacks,
     }: Props = $props();
 
@@ -223,6 +225,7 @@
 <div
     bind:this={boardEl}
     class="bases-kanban-board"
+    style:flex-direction={columnsRightToLeft ? "row-reverse" : "row"}
     data-keyboard-bound="true"
     tabindex="0"
     onkeydown={callbacks.board.keyDown}
