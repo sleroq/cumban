@@ -199,6 +199,63 @@
         );
     }
 
+    function getColumnInsertionTarget(mouseX: number): {
+        targetKey: string | null;
+        placement: "before" | "after";
+    } {
+        if (boardEl === null) {
+            return { targetKey: null, placement: "before" };
+        }
+
+        const columns = boardEl.querySelectorAll(".bases-kanban-column");
+        if (columns.length === 0) {
+            return { targetKey: null, placement: "before" };
+        }
+
+        let nearestKey: string | null = null;
+        let nearestPlacement: "before" | "after" = "before";
+        let minDistance = Infinity;
+
+        for (const col of Array.from(columns)) {
+            const rect = col.getBoundingClientRect();
+            const midX = rect.left + rect.width / 2;
+            const distance = Math.abs(mouseX - midX);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestKey = col.getAttribute("data-column-key");
+                nearestPlacement = mouseX < midX ? "before" : "after";
+            }
+        }
+
+        return { targetKey: nearestKey, placement: nearestPlacement };
+    }
+
+    function handleBoardColumnDragOver(evt: DragEvent): void {
+        if ($columnSourceKeyStore === null) return;
+        const target = evt.target as HTMLElement;
+        if (target.closest(".bases-kanban-column") !== null) return;
+
+        evt.preventDefault();
+        const { targetKey, placement } = getColumnInsertionTarget(evt.clientX);
+        if (targetKey !== null) {
+            handleSetColumnDropTarget(targetKey, placement);
+        }
+    }
+
+    function handleBoardColumnDrop(evt: DragEvent): void {
+        const sourceKey = $columnSourceKeyStore;
+        if (sourceKey === null) return;
+        const target = evt.target as HTMLElement;
+        if (target.closest(".bases-kanban-column") !== null) return;
+
+        evt.preventDefault();
+        const { targetKey, placement } = getColumnInsertionTarget(evt.clientX);
+        dragState.clearDropTarget();
+        if (targetKey !== null) {
+            callbacks.column.drop(sourceKey, targetKey, placement);
+        }
+    }
+
     const startCardIndexes = $derived.by(() => {
         let runningTotal = 0;
         return groups.map(({ entries }) => {
@@ -257,6 +314,8 @@
     tabindex="0"
     onkeydown={callbacks.board.keyDown}
     onclick={handleBoardClick}
+    ondragover={handleBoardColumnDragOver}
+    ondrop={handleBoardColumnDrop}
     role="application"
 >
     {#each groups as { group, entries }, idx (getColumnKey(group.key))}

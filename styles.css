@@ -135,11 +135,16 @@
 }
 
 .bases-kanban-column.bases-kanban-column-drop-before::before {
-	left: calc(-1 * var(--size-4-3) / 2 - 2px);
+	left: calc(-0.5 * (var(--size-4-3) + var(--bases-kanban-drop-indicator-width, 4px)));
 }
 
 .bases-kanban-column.bases-kanban-column-drop-after::after {
-	right: calc(-1 * var(--size-4-3) / 2 - 2px);
+	right: calc(-0.5 * (var(--size-4-3) + var(--bases-kanban-drop-indicator-width, 4px)));
+}
+
+.bases-kanban-column.bases-kanban-column-drop-before,
+.bases-kanban-column.bases-kanban-column-drop-after {
+	overflow: visible;
 }
 
 /* Dim column while being dragged */
