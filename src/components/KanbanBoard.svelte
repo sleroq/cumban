@@ -4,7 +4,7 @@
         BasesPropertyId,
         BasesEntryGroup,
     } from "obsidian";
-    import { setContext } from "svelte";
+    import { getContext, setContext } from "svelte";
     import { onMount } from "svelte";
     import KanbanColumn from "./KanbanColumn.svelte";
 
@@ -13,6 +13,8 @@
         KANBAN_BOARD_CONTEXT_KEY,
         type KanbanBoardContext,
     } from "../kanban-view/board-context";
+    import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
+    import type { KanbanContext } from "../kanban-view/context";
     import { createKanbanDragState } from "../kanban-view/drag-state";
     import { getColumnKey } from "../kanban-view/utils";
     import { flip } from "svelte/animate";
@@ -41,6 +43,9 @@
         callbacks,
     }: Props = $props();
 
+    const { settingsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+    const settings = $derived($settingsStore);
+
     let boardEl: HTMLElement | null = $state(null);
     let suppressScrollEvents = $state(true);
     let clearSuppressionRafId: number | null = null;
@@ -48,6 +53,17 @@
     let activePropertyEditorClose: (() => Promise<void>) | null = null;
     let activePropertyEditorContainsTarget: ((target: Node) => boolean) | null =
         null;
+
+    function conditionalFlip(
+        node: Element,
+        { from, to }: { from: DOMRect; to: DOMRect },
+        options?: { delay?: number; duration?: number | ((len: number) => number); easing?: (t: number) => number },
+    ): { delay?: number; duration?: number; easing?: (t: number) => number; css?: (t: number, u: number) => string; tick?: (t: number, u: number) => void } {
+        if (!settings.enableAnimations) {
+            return { duration: 0 };
+        }
+        return flip(node, { from, to }, options);
+    }
 
     const dragState = createKanbanDragState();
     const columnSourceKeyStore = $derived(dragState.columnSourceKey);
@@ -247,7 +263,7 @@
         {@const startIndex = startCardIndexes[idx] ?? 0}
         {@const groupEntries = entries}
         {@const isPinned = pinnedColumns.has(columnKey)}
-        <div animate:flip={{ duration: 100 }}>
+        <div animate:conditionalFlip={{ duration: 100 }}>
             <KanbanColumn
                 {columnKey}
                 {groupKey}

@@ -7,6 +7,7 @@ export interface BasesKanbanSettings {
   placeholderText: string;
 
   // Behavior
+  enableAnimations: boolean;
   scrollDebounceMs: number;
   trashShortcutKey: string;
 
@@ -54,6 +55,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
     'Set "Group by" in the sort menu to organize cards into columns.',
 
   // Behavior
+  enableAnimations: true,
   scrollDebounceMs: 300,
   trashShortcutKey: "Backspace",
 
@@ -339,6 +341,18 @@ export class KanbanSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl).setName("Appearance").setHeading();
+
+    new Setting(containerEl)
+      .setName("Enable animations")
+      .setDesc("Enable flip animations when cards and columns are reordered")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableAnimations)
+          .onChange(async (value) => {
+            this.plugin.settings.enableAnimations = value;
+            await this.plugin.saveSettings();
+          }),
+      );
 
     new Setting(containerEl)
       .setName("Column width")

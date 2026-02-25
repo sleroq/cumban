@@ -78,6 +78,17 @@
     let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
     let columnRafId: number | null = null;
 
+    function conditionalFlip(
+        node: Element,
+        { from, to }: { from: DOMRect; to: DOMRect },
+        options?: { delay?: number; duration?: number | ((len: number) => number); easing?: (t: number) => number },
+    ): { delay?: number; duration?: number; easing?: (t: number) => number; css?: (t: number, u: number) => string; tick?: (t: number, u: number) => void } {
+        if (!settings.enableAnimations) {
+            return { duration: 0 };
+        }
+        return flip(node, { from, to }, options);
+    }
+
     const columnName = $derived(
         getColumnName(groupKey, settings.emptyColumnLabel),
     );
@@ -493,7 +504,7 @@
     >
         {#each entries as entry, i (entry.file.path)}
             {@const cardIndex = startCardIndex + i}
-            <div animate:flip={{ duration: 100 }}>
+            <div animate:conditionalFlip={{ duration: 100 }}>
                 <KanbanCard
                     {entry}
                     {columnKey}
