@@ -21,6 +21,7 @@ jobs:
         with:
           bun-version: ${{ matrix.bun-version }}
       - run: bun install
+      - run: bun run test
       - run: bun run build
       - run: bun run lint
       - run: bun run svelte-check
