@@ -167,7 +167,6 @@ export function getPropertyValues(value: unknown): string[] | null {
     return null;
   }
 
-  // Handle arrays - each element is a separate value
   if (Array.isArray(value)) {
     const values = value
       .map((v) => {
@@ -183,7 +182,6 @@ export function getPropertyValues(value: unknown): string[] | null {
     return null;
   }
 
-  // Handle comma-separated tags
   if (stringValue.includes(",")) {
     return splitTopLevelCommaSeparated(stringValue);
   }
@@ -250,18 +248,4 @@ export function resolveFrontmatterKey(
   }
 
   return propertyKey;
-}
-
-export function getHashColor(
-  value: string,
-  saturation = 80,
-  lightness = 60,
-  alpha = 0.5,
-): string {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = value.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = Math.abs(hash) % 360;
-  return `hsla(${h}, ${saturation}%, ${lightness}%, ${alpha})`;
 }

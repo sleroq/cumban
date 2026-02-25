@@ -49,7 +49,6 @@
     let activePropertyEditorContainsTarget: ((target: Node) => boolean) | null =
         null;
 
-    // Create unified drag state at board level
     const dragState = createKanbanDragState();
     const columnSourceKeyStore = $derived(dragState.columnSourceKey);
     const cardSourcePathStore = $derived(dragState.cardSourcePath);
@@ -121,7 +120,6 @@
         callbacks.board.addColumn();
     }
 
-    // Wrapper functions that include drag state
     function handleStartColumnDrag(evt: DragEvent, columnKey: string): void {
         dragState.startColumnDrag(columnKey, evt.dataTransfer);
         callbacks.column.startDrag(columnKey);
@@ -208,7 +206,6 @@
             });
         });
 
-        // Use passive listener for better scroll performance
         boardEl.addEventListener("scroll", handleBoardScroll, {
             passive: true,
         });

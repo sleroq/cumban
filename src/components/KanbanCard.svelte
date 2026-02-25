@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getContext, onDestroy } from "svelte";
-    import { setIcon, type BasesEntry, type BasesPropertyId } from "obsidian";
+    import { type BasesEntry, type BasesPropertyId } from "obsidian";
     import type { PropertyEditorMode } from "../kanban-view/actions";
     import type { PropertyType } from "../kanban-view/actions";
     import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-popover";
@@ -46,7 +46,6 @@
         onDrop,
     }: Props = $props();
 
-    // Get settings and selection store from context
     const { app, settingsStore, selectedPathsStore } =
         getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
     const boardContext = getContext<KanbanBoardContext>(
@@ -77,6 +76,34 @@
     let titleDraft = $state("");
     let isRenamingTitle = $state(false);
 
+    let pendingContentSync = $state<{
+        content: string;
+        placeCaret: boolean;
+    } | null>(null);
+
+    function syncContenteditable(
+        node: HTMLElement,
+        _initialOptions: { content: string; placeCaret: boolean } | null,
+    ): {
+        update: (
+            options: { content: string; placeCaret: boolean } | null,
+        ) => void;
+    } {
+        return {
+            update(newOptions): void {
+                if (newOptions !== null) {
+                    node.textContent = newOptions.content;
+                    if (
+                        newOptions.placeCaret &&
+                        newOptions.content.length > 0
+                    ) {
+                        placeCaretAtEnd(node);
+                    }
+                }
+            },
+        };
+    }
+
     const filePath = $derived(entry.file.path);
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
     const title = $derived(
@@ -90,12 +117,8 @@
         ),
     );
 
-    // Derive selection status from store - each card subscribes individually
-    // This is more efficient than parent passing selected as prop because
-    // it prevents entire column re-render when selection changes
     const selected = $derived($selectedPathsStore.has(filePath));
 
-    // Reactive stores for drag state (using store-returning methods for proper Svelte 5 reactivity)
     const isDropTarget = $derived(dragState.cardDropTargetStore(filePath));
     const dropPlacement = $derived(dragState.cardDropPlacementStore(filePath));
     const isDraggingSource = $derived(dragState.cardSourceStore(filePath));
@@ -249,16 +272,6 @@
         return styles.join("; ");
     }
 
-    function setXIcon(node: HTMLElement): { destroy: () => void } {
-        node.empty();
-        setIcon(node, "x");
-        return {
-            destroy(): void {
-                node.empty();
-            },
-        };
-    }
-
     function arraysEqual(a: string[], b: string[]): boolean {
         if (a.length !== b.length) {
             return false;
@@ -281,9 +294,7 @@
 
     function clearEditInput(): void {
         editInput = "";
-        if (propertyInputEl !== null) {
-            propertyInputEl.textContent = "";
-        }
+        pendingContentSync = { content: "", placeCaret: false };
     }
 
     function getCurrentEditInput(): string {
@@ -318,10 +329,7 @@
         if (editingMode === "single") {
             editingValues = [normalizedValue];
             editInput = normalizedValue;
-            if (propertyInputEl !== null) {
-                propertyInputEl.textContent = normalizedValue;
-                placeCaretAtEnd(propertyInputEl);
-            }
+            pendingContentSync = { content: normalizedValue, placeCaret: true };
             markChanges();
             return;
         }
@@ -379,9 +387,8 @@
             isTargetInsidePropertyEditor,
         );
         queueMicrotask(() => {
-            if (mode === "single" && propertyInputEl !== null) {
-                propertyInputEl.textContent = editInput;
-                placeCaretAtEnd(propertyInputEl);
+            if (mode === "single") {
+                pendingContentSync = { content: editInput, placeCaret: true };
             }
             propertyInputEl?.focus();
             refreshSuggestions();
@@ -690,7 +697,6 @@
     }
 
     function handleDragEnd(): void {
-        // Cancel any pending RAF callback
         if (rafId !== null) {
             cancelAnimationFrame(rafId);
             rafId = null;
@@ -703,14 +709,11 @@
         evt.preventDefault();
         evt.stopPropagation();
 
-        // Throttle drop target calculation via requestAnimationFrame
-        // to reduce churn during drag operations
         if (rafId !== null) {
             cancelAnimationFrame(rafId);
         }
         rafId = requestAnimationFrame(() => {
             rafId = null;
-            // Calculate drop placement based on mouse position
             if (cardEl !== null) {
                 const rect = cardEl.getBoundingClientRect();
                 const midY = rect.top + rect.height / 2;
@@ -722,8 +725,6 @@
 
     function handleDragLeave(evt: DragEvent): void {
         const relatedTarget = evt.relatedTarget as Node | null;
-        // Don't clear drop target if relatedTarget is null - HTML5 DnD fires dragleave
-        // with null relatedTarget frequently. Only clear when moving to a different element.
         if (relatedTarget === null) {
             return;
         }
@@ -737,7 +738,6 @@
         if (groupByProperty === null) return;
         evt.preventDefault();
         evt.stopPropagation();
-        // Cancel any pending RAF callback to prevent stale state updates
         if (rafId !== null) {
             cancelAnimationFrame(rafId);
             rafId = null;
@@ -885,7 +885,7 @@
             if (url.protocol === "http:" || url.protocol === "https:") {
                 return trimmedValue;
             }
-        } catch (_error: unknown) {
+        } catch {
             return null;
         }
 
@@ -931,16 +931,20 @@
     }
 
     function getRelativeDate(dateValue: string): "past" | "future" | "today" {
-        const date = new Date(dateValue);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const compareDate = new Date(date);
-        compareDate.setHours(0, 0, 0, 0);
+        const parsedDate = Date.parse(dateValue);
+        if (isNaN(parsedDate)) {
+            return "future";
+        }
 
-        if (compareDate.getTime() === today.getTime()) {
+        const now = Date.now();
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const todayStart = Math.floor(now / msPerDay) * msPerDay;
+        const dateStart = Math.floor(parsedDate / msPerDay) * msPerDay;
+
+        if (dateStart === todayStart) {
             return "today";
         }
-        return compareDate.getTime() < today.getTime() ? "past" : "future";
+        return dateStart < todayStart ? "past" : "future";
     }
 
     function formatDateValue(value: string, type: PropertyType): string {
@@ -979,7 +983,6 @@
         evt.preventDefault();
         evt.stopPropagation();
         const dailyNotePath = getDailyNotePath(dateValue);
-        // Create a synthetic mouse event for the linkClick callback
         const syntheticEvt =
             evt instanceof MouseEvent
                 ? evt
@@ -1062,7 +1065,7 @@
                     stroke-linecap="round"
                     stroke-linejoin="round"
                     class="svg-icon lucide-pencil"
-                ><path
+                    ><path
                         d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
                     ></path><path d="m15 5 4 4"></path></svg
                 >
@@ -1145,10 +1148,11 @@
                                         {@const editableLinkInfo = isTagProperty
                                             ? null
                                             : getEditableLinkInfo(value)}
-                                        {@const displayValue = getTagDisplayValue(
-                                            value,
-                                            isTagProperty,
-                                        )}
+                                        {@const displayValue =
+                                            getTagDisplayValue(
+                                                value,
+                                                isTagProperty,
+                                            )}
                                         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                                         <div
                                             class={pillClass}
@@ -1239,6 +1243,7 @@
                                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                                 <div
                                     bind:this={propertyInputEl}
+                                    use:syncContenteditable={pendingContentSync}
                                     class="multi-select-input"
                                     contenteditable="true"
                                     tabindex="0"
@@ -1436,7 +1441,7 @@
                                     stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="svg-icon lucide-pencil"
-                                ><path
+                                    ><path
                                         d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
                                     ></path><path d="m15 5 4 4"></path></svg
                                 >

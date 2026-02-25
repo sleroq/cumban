@@ -24,10 +24,8 @@ export type KanbanViewModel = {
   getColumnScrollByKey: () => Record<string, number>;
   startCardDrag: (filePath: string) => void;
   endCardDrag: () => void;
-  getDraggingCardSourcePath: () => string | null;
   startColumnDrag: (columnKey: string) => void;
   endColumnDrag: () => void;
-  getDraggingColumnSourceKey: () => string | null;
 };
 
 export function createKanbanViewModel(): KanbanViewModel {
@@ -73,7 +71,10 @@ export function createKanbanViewModel(): KanbanViewModel {
         return false;
       }
 
-      if (getColumnKey(currentGroup.group.key) !== getColumnKey(nextGroup.group.key)) {
+      if (
+        getColumnKey(currentGroup.group.key) !==
+        getColumnKey(nextGroup.group.key)
+      ) {
         return false;
       }
 
@@ -81,7 +82,11 @@ export function createKanbanViewModel(): KanbanViewModel {
         return false;
       }
 
-      for (let entryIndex = 0; entryIndex < currentGroup.entries.length; entryIndex++) {
+      for (
+        let entryIndex = 0;
+        entryIndex < currentGroup.entries.length;
+        entryIndex++
+      ) {
         const currentEntry = currentGroup.entries[entryIndex];
         const nextEntry = nextGroup.entries[entryIndex];
         if (
@@ -122,7 +127,9 @@ export function createKanbanViewModel(): KanbanViewModel {
       }
 
       const currentSelectedProperties = get(selectedPropertiesStore);
-      if (!areStringArraysEqual(currentSelectedProperties, selectedProperties)) {
+      if (
+        !areStringArraysEqual(currentSelectedProperties, selectedProperties)
+      ) {
         selectedPropertiesStore.set(selectedProperties);
       }
     },
@@ -147,20 +154,12 @@ export function createKanbanViewModel(): KanbanViewModel {
       draggingCardSourcePathStore.set(null);
     },
 
-    getDraggingCardSourcePath(): string | null {
-      return get(draggingCardSourcePathStore);
-    },
-
     startColumnDrag(columnKey: string): void {
       draggingColumnSourceKeyStore.set(columnKey);
     },
 
     endColumnDrag(): void {
       draggingColumnSourceKeyStore.set(null);
-    },
-
-    getDraggingColumnSourceKey(): string | null {
-      return get(draggingColumnSourceKeyStore);
     },
   };
 }

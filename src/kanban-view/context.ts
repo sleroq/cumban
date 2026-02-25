@@ -15,5 +15,4 @@ export type KanbanContext = {
   pinnedColumnsStore: Readable<Set<string>>;
 };
 
-/** Context key - using Symbol for uniqueness */
 export const KANBAN_CONTEXT_KEY = Symbol("kanban-context");

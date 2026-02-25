@@ -64,20 +64,17 @@
         onCardDrop,
     }: Props = $props();
 
-    // Get settings from context
     const { settingsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
     const boardContext = getContext<KanbanBoardContext>(
         KANBAN_BOARD_CONTEXT_KEY,
     );
     const settings = $derived($settingsStore);
     const groupByProperty = $derived(boardContext.groupByProperty);
-    const selectedProperties = $derived(boardContext.selectedProperties);
     const callbacks = $derived(boardContext.callbacks);
     const dragState = boardContext.dragState;
 
     let columnEl: HTMLElement | null = $state(null);
     let cardsEl: HTMLElement | null = $state(null);
-    // These are imperative cleanup values, not reactive UI state
     let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
     let columnRafId: number | null = null;
 
@@ -89,11 +86,9 @@
     let columnNameInputEl: HTMLInputElement | null = $state(null);
     let isSubmittingColumnRename = $state(false);
 
-    // Extract stores to local variables so we can use $ prefix
     const columnIsDragging = $derived(dragState.isColumnDragging);
     const cardIsDragging = $derived(dragState.isCardDragging);
 
-    // Create reactive stores for this column's drag state
     const isDropTargetBefore = $derived(
         dragState.columnDropTargetStore(columnKey),
     );
@@ -119,7 +114,6 @@
         }
     });
 
-    // Action to set the pin icon based on pinned state
     function setPinIcon(
         node: HTMLElement,
         pinned: boolean,
@@ -131,14 +125,11 @@
 
         updateIcon(pinned);
 
-        // Return minimal cleanup - Obsidian handles icon lifecycle
         return {
             update(nextPinned: boolean) {
                 updateIcon(nextPinned);
             },
-            destroy() {
-                // No cleanup needed
-            },
+            destroy() {},
         };
     }
 
@@ -264,7 +255,6 @@
     ondragover={(evt) => {
         if (!$columnIsDragging) return;
         evt.preventDefault();
-        // Throttle via requestAnimationFrame to reduce churn
         if (columnRafId !== null) {
             cancelAnimationFrame(columnRafId);
         }
@@ -280,8 +270,6 @@
     }}
     ondragleave={(evt) => {
         const relatedTarget = evt.relatedTarget as Node | null;
-        // Don't clear drop target if relatedTarget is null - HTML5 DnD fires dragleave
-        // with null relatedTarget frequently. Only clear when moving to a different element.
         if (relatedTarget === null) {
             return;
         }
@@ -293,7 +281,6 @@
     ondrop={(evt) => {
         if (!$columnIsDragging) return;
         evt.preventDefault();
-        // Cancel pending RAF
         if (columnRafId !== null) {
             cancelAnimationFrame(columnRafId);
             columnRafId = null;
@@ -347,7 +334,6 @@
                 evt.preventDefault();
                 return;
             }
-            // Don't initiate drag if clicking the add button
             const target = evt.target as HTMLElement;
             if (target.closest(".bases-kanban-add-card-button") !== null) {
                 evt.preventDefault();
@@ -356,7 +342,6 @@
             onStartColumnDrag(evt, columnKey);
         }}
         ondragend={() => {
-            // Cancel pending RAF
             if (columnRafId !== null) {
                 cancelAnimationFrame(columnRafId);
                 columnRafId = null;
@@ -462,15 +447,11 @@
             if (groupByProperty === null || !$cardIsDragging) return;
             evt.preventDefault();
 
-            // When dragging over the container (not directly on a card), find the
-            // closest card to the cursor and set it as the drop target. This handles
-            // edge cases where the cursor is near card boundaries or in gaps.
             if (cardsEl === null) return;
 
             const target = evt.target as HTMLElement;
             const isOnCard = target.closest(".bases-kanban-card") !== null;
             if (isOnCard) {
-                // Card's own dragover handler will handle this
                 return;
             }
 
@@ -485,22 +466,17 @@
         }}
         ondrop={(evt) => {
             evt.preventDefault();
-            // Check if drop actually occurred on the cards container (empty space)
-            // versus bubbling up from a card element. The target is the element
-            // that received the drop, which could be the container or a card.
             const dropTarget = evt.target as HTMLElement;
             const isDropOnContainer =
                 dropTarget === cardsEl ||
                 (dropTarget !== null &&
                     dropTarget.classList?.contains("bases-kanban-cards"));
             if (!isDropOnContainer) {
-                // Drop was on a card element - let the card's drop handler handle this
                 return;
             }
             const { targetPath, placement } = getCardInsertionTarget(
                 evt.clientY,
             );
-            // Empty space drop - clear any stale card target and use column's group key
             onSetCardDropTarget(null, null, null);
             onCardDrop(targetPath, groupKey, placement);
         }}
@@ -516,7 +492,6 @@
         role="list"
     >
         {#each entries as entry, i (entry.file.path)}
-            {@const filePath = entry.file.path}
             {@const cardIndex = startCardIndex + i}
             <div animate:flip={{ duration: 100 }}>
                 <KanbanCard

@@ -7,10 +7,6 @@ export type RenderedGroup = {
   entries: BasesEntry[];
 };
 
-/**
- * Merge groups that share the same column key.
- * Groups with the same normalized key are combined into one.
- */
 export function mergeGroupsByColumnKey(
   groups: BasesEntryGroup[],
 ): BasesEntryGroup[] {
@@ -35,10 +31,6 @@ export function mergeGroupsByColumnKey(
   return [...mergedByColumnKey.values()];
 }
 
-/**
- * Sort groups according to the configured column order.
- * Groups not in the order config are placed at the end.
- */
 export function sortGroupsByColumnOrder(
   groups: BasesEntryGroup[],
   columnOrder: string[],
@@ -66,10 +58,6 @@ export function sortGroupsByColumnOrder(
   });
 }
 
-/**
- * Apply local card order to entries within a column.
- * Entries are reordered according to the saved order, with new entries prepended.
- */
 export function applyLocalCardOrder(
   columnKey: string,
   entries: BasesEntry[],
@@ -108,9 +96,6 @@ export function applyLocalCardOrder(
   return nextEntries;
 }
 
-/**
- * Build rendered groups by applying local card order to each column.
- */
 export function buildRenderedGroups(
   orderedGroups: BasesEntryGroup[],
   localCardOrderByColumn: Map<string, string[]>,

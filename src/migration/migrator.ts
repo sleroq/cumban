@@ -81,7 +81,8 @@ function assertMigrationDoesNotExist(
   const existingBase = plugin.app.vault.getAbstractFileByPath(basePath);
   const existingLegacyBugBase =
     plugin.app.vault.getAbstractFileByPath(legacyBugBasePath);
-  const existingBoardFolder = plugin.app.vault.getAbstractFileByPath(boardFolder);
+  const existingBoardFolder =
+    plugin.app.vault.getAbstractFileByPath(boardFolder);
   const queryProperty =
     plugin.settings.migrationQueryProperty.trim().length === 0
       ? DEFAULT_QUERY_PROPERTY
@@ -146,13 +147,17 @@ async function createNoteWithUniquePath(
 ): Promise<void> {
   let attempts = 0;
   while (attempts < 10_000) {
-    const path = buildUniqueMarkdownPath(boardFolder, title, (candidatePath) => {
-      if (reservedPaths.has(candidatePath)) {
-        return true;
-      }
+    const path = buildUniqueMarkdownPath(
+      boardFolder,
+      title,
+      (candidatePath) => {
+        if (reservedPaths.has(candidatePath)) {
+          return true;
+        }
 
-      return plugin.app.vault.getAbstractFileByPath(candidatePath) !== null;
-    });
+        return plugin.app.vault.getAbstractFileByPath(candidatePath) !== null;
+      },
+    );
 
     try {
       await plugin.app.vault.create(path, content);
@@ -310,6 +315,3 @@ export async function migrateLegacyKanbanFile(
     baseFilePath: basePath,
   };
 }
-
-export const MIGRATION_DEFAULT_QUERY_PROPERTY = DEFAULT_QUERY_PROPERTY;
-export const MIGRATION_DEFAULT_GROUP_PROPERTY = DEFAULT_GROUP_PROPERTY;

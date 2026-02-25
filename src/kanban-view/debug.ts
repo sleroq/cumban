@@ -22,7 +22,6 @@ const isDebugEnabled = (): boolean => {
   if (typeof window !== "undefined" && window.__KANBAN_DEBUG__ === true) {
     return true;
   }
-  // Fall back to build-time flag
   return typeof DEBUG_ENABLED !== "undefined" ? DEBUG_ENABLED : false;
 };
 
@@ -60,7 +59,6 @@ const shouldLogCache = (): boolean => {
   return typeof DEBUG_CACHE !== "undefined" ? DEBUG_CACHE : false;
 };
 
-// Render event logging
 export function logRenderEvent(
   event: string,
   details?: Record<string, unknown>,
@@ -70,7 +68,6 @@ export function logRenderEvent(
   console.log(`[${timestamp}] [RENDER] ${event}`, details ?? "");
 }
 
-// Drag-drop event logging
 export function logDragEvent(
   event: string,
   details?: Record<string, unknown>,
@@ -80,7 +77,6 @@ export function logDragEvent(
   console.log(`[${timestamp}] [DRAG] ${event}`, details ?? "");
 }
 
-// Scroll event logging
 export function logScrollEvent(
   event: string,
   details?: Record<string, unknown>,
@@ -90,7 +86,6 @@ export function logScrollEvent(
   console.log(`[${timestamp}] [SCROLL] ${event}`, details ?? "");
 }
 
-// Cache event logging
 export function logCacheEvent(
   event: string,
   details?: Record<string, unknown>,
@@ -100,7 +95,6 @@ export function logCacheEvent(
   console.log(`[${timestamp}] [CACHE] ${event}`, details ?? "");
 }
 
-// General debug logging
 export function logDebug(
   category: string,
   message: string,

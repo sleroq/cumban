@@ -49,9 +49,6 @@ export type KanbanDragState = {
     targetKey: string | null,
     placement: DragPlacement | null,
   ) => void;
-  getCardSourcePath: () => string | null;
-  getColumnSourceKey: () => string | null;
-  getCardPlacement: () => DragPlacement | null;
   getCardDropPlacement: (path: string) => DragPlacement | null;
   getColumnDropPlacement: (key: string) => DragPlacement | null;
   cardDropTargetStore: (path: string) => Readable<boolean>;
@@ -197,21 +194,6 @@ export function createKanbanDragState(): KanbanDragState {
     dropTarget.set(nextTarget);
   }
 
-  function getCardSourcePath(): string | null {
-    const current = get(session);
-    return current?.kind === "card" ? current.sourcePath : null;
-  }
-
-  function getColumnSourceKey(): string | null {
-    const current = get(session);
-    return current?.kind === "column" ? current.sourceKey : null;
-  }
-
-  function getCardPlacement(): DragPlacement | null {
-    const current = get(dropTarget);
-    return current?.kind === "card" ? current.placement : null;
-  }
-
   function getCardDropPlacement(path: string): DragPlacement | null {
     const current = get(dropTarget);
     return current?.kind === "card" && current.targetPath === path
@@ -332,9 +314,6 @@ export function createKanbanDragState(): KanbanDragState {
     clearDropTarget,
     setCardDropTarget,
     setColumnDropTarget,
-    getCardSourcePath,
-    getColumnSourceKey,
-    getCardPlacement,
     getCardDropPlacement,
     getColumnDropPlacement,
     cardDropTargetStore,

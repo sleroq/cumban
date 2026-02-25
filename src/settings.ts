@@ -106,7 +106,6 @@ export class KanbanSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    // Display & Labels Section
     new Setting(containerEl).setName("Display").setHeading();
 
     new Setting(containerEl)
@@ -114,7 +113,7 @@ export class KanbanSettingTab extends PluginSettingTab {
       .setDesc("Text shown for columns with no value")
       .addText((text) =>
         text
-          .setPlaceholder("(No value)")
+          .setPlaceholder("(no value)")
           .setValue(this.plugin.settings.emptyColumnLabel)
           .onChange(async (value) => {
             this.plugin.settings.emptyColumnLabel =
@@ -125,11 +124,11 @@ export class KanbanSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Placeholder text")
-      .setDesc("Message shown when 'Group by' is not configured")
+      .setDesc("Message shown when 'group by' is not configured")
       .addText((text) =>
         text
           .setPlaceholder(
-            'Set "Group by" in the sort menu to organize cards into columns.',
+            'Set "group by" in the sort menu to organize cards into columns.',
           )
           .setValue(this.plugin.settings.placeholderText)
           .onChange(async (value) => {
@@ -139,8 +138,7 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Card Display Section
-    new Setting(containerEl).setName("Card Display").setHeading();
+    new Setting(containerEl).setName("Card display").setHeading();
 
     new Setting(containerEl)
       .setName("Card title source")
@@ -183,7 +181,7 @@ export class KanbanSettingTab extends PluginSettingTab {
       )
       .addText((text) =>
         text
-          .setPlaceholder("var(--text-normal)")
+          .setPlaceholder("Any CSS color")
           .setValue(this.plugin.settings.cardTitleColor)
           .onChange(async (value) => {
             this.plugin.settings.cardTitleColor =
@@ -194,9 +192,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Maximum property value length")
-      .setDesc(
-        'Property values longer than this will be truncated with "...".',
-      )
+      .setDesc('Property values longer than this will be truncated with "...".')
       .addSlider((slider) =>
         slider
           .setLimits(10, 60, 5)
@@ -236,8 +232,7 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Column Display Section
-    new Setting(containerEl).setName("Column Display").setHeading();
+    new Setting(containerEl).setName("Column display").setHeading();
 
     new Setting(containerEl)
       .setName("Column header width")
@@ -255,7 +250,6 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Behavior Section
     new Setting(containerEl).setName("Behavior").setHeading();
 
     new Setting(containerEl)
@@ -274,7 +268,7 @@ export class KanbanSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Trash shortcut key")
-      .setDesc("Key to press with Ctrl/Cmd to trash selected cards")
+      .setDesc("Key to press with ctrl/cmd to trash selected cards")
       .addText((text) =>
         text
           .setPlaceholder("Backspace")
@@ -286,8 +280,7 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // UI Text Section
-    new Setting(containerEl).setName("UI Text").setHeading();
+    new Setting(containerEl).setName("UI text").setHeading();
 
     new Setting(containerEl)
       .setName("Add card button text")
@@ -345,7 +338,6 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Appearance Section
     new Setting(containerEl).setName("Appearance").setHeading();
 
     new Setting(containerEl)
@@ -376,8 +368,7 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Tag Colors Section
-    new Setting(containerEl).setName("Tag Colors").setHeading();
+    new Setting(containerEl).setName("Tag colors").setHeading();
 
     new Setting(containerEl)
       .setName("Saturation")
@@ -434,7 +425,6 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Background Section
     new Setting(containerEl).setName("Background").setHeading();
 
     new Setting(containerEl)
@@ -493,15 +483,14 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
-    // Migration Section
     new Setting(containerEl).setName("Migration").setHeading();
 
     new Setting(containerEl)
       .setName("Migration group property")
-      .setDesc("Property used for lane name, used as Base groupBy")
+      .setDesc("Property used for lane name, used as base group-by")
       .addText((text) =>
         text
-          .setPlaceholder("status")
+          .setPlaceholder("Property name")
           .setValue(this.plugin.settings.migrationGroupProperty)
           .onChange(async (value) => {
             this.plugin.settings.migrationGroupProperty =
@@ -517,7 +506,7 @@ export class KanbanSettingTab extends PluginSettingTab {
       .setDesc("Property used to filter all notes migrated from one board")
       .addText((text) =>
         text
-          .setPlaceholder("legacyKanbanSource")
+          .setPlaceholder("Property name")
           .setValue(this.plugin.settings.migrationQueryProperty)
           .onChange(async (value) => {
             this.plugin.settings.migrationQueryProperty =

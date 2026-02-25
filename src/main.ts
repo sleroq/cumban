@@ -21,7 +21,7 @@ export default class BasesKanbanPlugin extends Plugin {
 
     this.addCommand({
       id: "migrate-legacy-kanban-board",
-      name: "Migrate legacy Kanban board to Bases",
+      name: "Migrate legacy kanban board to bases",
       checkCallback: (checking) => {
         const activeFile = this.app.workspace.getActiveFile();
         if (!(activeFile instanceof TFile) || activeFile.extension !== "md") {
@@ -63,7 +63,7 @@ export default class BasesKanbanPlugin extends Plugin {
 
     this.addCommand({
       id: "add-kanban-column",
-      name: "Add Kanban column",
+      name: "Add kanban column",
       checkCallback: (checking) => {
         const activeKanbanView = this.getActiveKanbanView();
         if (activeKanbanView === null) {
@@ -113,7 +113,8 @@ export default class BasesKanbanPlugin extends Plugin {
       return null;
     }
 
-    const leafContainer = (activeLeaf.view as { containerEl?: unknown }).containerEl;
+    const leafContainer = (activeLeaf.view as { containerEl?: unknown })
+      .containerEl;
     if (!(leafContainer instanceof HTMLElement)) {
       return null;
     }
@@ -152,14 +153,16 @@ export default class BasesKanbanPlugin extends Plugin {
   private async handleLegacyKanbanMigration(file: TFile): Promise<void> {
     const eligible = await isLegacyKanbanFile(this, file);
     if (!eligible) {
-      new Notice("Active file is not a supported legacy Kanban board.");
+      new Notice("Active file is not a supported legacy kanban board.");
       return;
     }
 
     try {
       const result = await migrateLegacyKanbanFile(this, file);
       new Notice(`Base file created: ${result.baseFilePath}`);
-      const baseFile = this.app.vault.getAbstractFileByPath(result.baseFilePath);
+      const baseFile = this.app.vault.getAbstractFileByPath(
+        result.baseFilePath,
+      );
       if (baseFile instanceof TFile) {
         void this.app.workspace.getLeaf(true).openFile(baseFile);
       }

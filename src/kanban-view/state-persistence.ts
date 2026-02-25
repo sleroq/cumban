@@ -1,7 +1,5 @@
 import { logCacheEvent, logScrollEvent } from "./debug";
 
-// ===== Types =====
-
 export type BoardScrollState = {
   left: number;
   top: number;
@@ -12,8 +10,6 @@ export type ScrollPosition = {
   scrollLeft: number;
   scrollTop: number;
 };
-
-// ===== Board Scroll State =====
 
 export function saveBoardScrollState(
   setConfig: (key: string, value: string) => void,
@@ -107,8 +103,6 @@ export function loadLegacyScrollPosition(
   return { scrollLeft, scrollTop };
 }
 
-// ===== Column Order =====
-
 export type ColumnOrderCache = {
   order: string[] | null;
   raw: string;
@@ -150,8 +144,6 @@ export function serializeColumnOrder(columnOrder: string[]): string {
   return columnOrder.join(",");
 }
 
-// ===== Pinned Columns =====
-
 export type PinnedColumnsCache = {
   columns: string[] | null;
   raw: string;
@@ -192,8 +184,6 @@ export function parsePinnedColumns(
 export function serializePinnedColumns(columns: string[]): string {
   return columns.join(",");
 }
-
-// ===== Local Card Order =====
 
 export type CardOrderCache = {
   order: Map<string, string[]> | null;
@@ -283,8 +273,6 @@ export function serializeLocalCardOrder(
 
   return Object.keys(serialized).length === 0 ? "" : JSON.stringify(serialized);
 }
-
-// ===== Column Scroll Position =====
 
 export function saveColumnScrollPosition(
   viewSessionId: string,

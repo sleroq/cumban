@@ -2,7 +2,17 @@ import type { BasesEntry, BasesPropertyId } from "obsidian";
 
 export type PropertyEditorMode = "single" | "multi";
 
-export type PropertyType = "date" | "text" | "multitext" | "tags" | "select" | "checkbox" | "number" | "datetime" | "time" | "unknown";
+export type PropertyType =
+  | "date"
+  | "text"
+  | "multitext"
+  | "tags"
+  | "select"
+  | "checkbox"
+  | "number"
+  | "datetime"
+  | "time"
+  | "unknown";
 
 export type KanbanCardCallbacks = {
   select: (filePath: string, extendSelection: boolean) => void;
@@ -17,9 +27,14 @@ export type KanbanCardCallbacks = {
   contextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
   linkClick: (evt: MouseEvent, target: string) => void;
   rename: (filePath: string, nextTitle: string) => Promise<void>;
-  getPropertyEditorMode: (propertyId: BasesPropertyId) => PropertyEditorMode | null;
+  getPropertyEditorMode: (
+    propertyId: BasesPropertyId,
+  ) => PropertyEditorMode | null;
   getPropertyType: (propertyId: BasesPropertyId) => PropertyType;
-  getPropertyCheckboxState: (filePath: string, propertyId: BasesPropertyId) => boolean;
+  getPropertyCheckboxState: (
+    filePath: string,
+    propertyId: BasesPropertyId,
+  ) => boolean;
   getPropertySuggestions: (propertyId: BasesPropertyId) => string[];
   updatePropertyValues: (
     filePath: string,
@@ -35,8 +50,15 @@ export type KanbanCardCallbacks = {
 };
 
 export type KanbanColumnCallbacks = {
-  createCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => void;
-  rename: (columnKey: string, groupKey: unknown, nextName: string) => Promise<void>;
+  createCard: (
+    groupByProperty: BasesPropertyId | null,
+    groupKey: unknown,
+  ) => void;
+  rename: (
+    columnKey: string,
+    groupKey: unknown,
+    nextName: string,
+  ) => Promise<void>;
   startDrag: (columnKey: string) => void;
   endDrag: () => void;
   drop: (

@@ -27,7 +27,6 @@
         columnTransparency: number;
         columnBlur: number;
         columnsRightToLeft: boolean;
-        // Store-based reactive data
         groupsStore: Readable<
             Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>
         >;
@@ -87,7 +86,6 @@
         columnBlur,
     });
 
-    // Derive values from stores - accessing stores with $ prefix makes them reactive
     const groups = $derived($groupsStore);
     const groupByProperty = $derived($groupByPropertyStore);
     const selectedProperties = $derived($selectedPropertiesStore);

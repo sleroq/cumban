@@ -16,22 +16,16 @@ export type ResolvedBackgroundStyles = {
   columnBlurValue: number;
 };
 
-/**
- * Resolve a background image input to a usable URL.
- * Supports HTTP(S) URLs and vault file paths.
- */
 function resolveBackgroundInput(app: App, input: string): string | null {
   const trimmed = input.trim();
   if (trimmed.length === 0) {
     return null;
   }
 
-  // Check if it's a URL (http:// or https://)
   if (/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
 
-  // Treat as vault file path
   const normalizedPath = normalizePath(trimmed);
   const file = app.vault.getAbstractFileByPath(normalizedPath);
   if (file instanceof TFile) {
@@ -41,9 +35,6 @@ function resolveBackgroundInput(app: App, input: string): string | null {
   return null;
 }
 
-/**
- * Clamp a numeric config value to a valid range.
- */
 function getConfigNumber(
   rawValue: unknown,
   globalDefault: number,
@@ -56,10 +47,6 @@ function getConfigNumber(
   return globalDefault;
 }
 
-/**
- * Resolve background configuration to concrete style values.
- * Returns an object with computed CSS values and image URL.
- */
 export function resolveBackgroundStyles(
   app: App,
   config: BackgroundConfig,
@@ -69,7 +56,6 @@ export function resolveBackgroundStyles(
       ? resolveBackgroundInput(app, config.imageInput)
       : null;
 
-  // Get configuration values
   const brightness = getConfigNumber(config.brightness, 100, 0, 100);
   const blur = getConfigNumber(config.blur, 0, 0, 20);
   const columnTransparency = getConfigNumber(

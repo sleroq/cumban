@@ -1,16 +1,8 @@
-/**
- * Selection state management for Kanban view.
- * Handles selected cards, range selection, and deriving dragged paths.
- */
-
 export type SelectionState = {
   selectedPaths: Set<string>;
   lastSelectedIndex: number | null;
 };
 
-/**
- * Create initial selection state.
- */
 export function createSelectionState(): SelectionState {
   return {
     selectedPaths: new Set<string>(),
@@ -87,9 +79,6 @@ export function selectCard(
   };
 }
 
-/**
- * Clear all selections.
- */
 export function clearSelection(): SelectionState {
   return {
     selectedPaths: new Set<string>(),
@@ -114,23 +103,14 @@ export function getDraggedPaths(
   return cardOrder.filter((path) => state.selectedPaths.has(path));
 }
 
-/**
- * Check if a path is currently selected.
- */
 export function isPathSelected(state: SelectionState, path: string): boolean {
   return state.selectedPaths.has(path);
 }
 
-/**
- * Check if selection is empty.
- */
 export function hasSelection(state: SelectionState): boolean {
   return state.selectedPaths.size > 0;
 }
 
-/**
- * Sort two indices into [lower, higher] tuple.
- */
 function sortRange(a: number, b: number): [number, number] {
   return a < b ? [a, b] : [b, a];
 }

@@ -1,9 +1,12 @@
-import type { LegacyKanbanBoard, LegacyKanbanCard, LegacyKanbanLane } from "./types";
+import type {
+  LegacyKanbanBoard,
+  LegacyKanbanCard,
+  LegacyKanbanLane,
+} from "./types";
 
 const HEADING_REGEX = /^##\s+(.+)$/;
 const CARD_REGEX = /^\s*-\s*\[[ xX]\]\s+(.+)$/;
-const FULL_WIKILINK_REGEX =
-  /^\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]$/;
+const FULL_WIKILINK_REGEX = /^\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]$/;
 
 function normalizeTitle(cardText: string): string {
   const withoutLinks = cardText.replace(

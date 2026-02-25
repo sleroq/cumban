@@ -315,35 +315,7 @@ export class KanbanView extends BasesView {
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
   private readonly viewModel: KanbanViewModel;
   private columnsRightToLeft = false;
-  // Cache of current rendered groups for data-driven operations
-  // Avoids DOM queries for card order operations
   private currentRenderedGroups: RenderedGroup[] = [];
-
-  // PERFORMANCE NOTES:
-  // Large Board Mode (Future Enhancement):
-  // If boards with >1000 cards become sluggish, consider implementing:
-  //
-  // 1. Column-level virtualization: Only render visible columns + 1 buffer
-  //    on each side. Track visible range via IntersectionObserver on column
-  //    container elements. Use transform/absolute positioning for scroll
-  //    virtualization (similar to react-window).
-  //
-  // 2. Card-level virtualization within columns: For columns with >50 cards,
-  //    virtualize the card list using similar technique. Each column would
-  //    need its own virtual scroll container with estimated row heights.
-  //
-  // 3. Incremental rendering: For initial load, render first N cards per column
-  //    then progressively render rest via requestIdleCallback or setTimeout
-  //    chunks to keep UI responsive during large data loads.
-  //
-  // 4. Drag optimization: During drag, temporarily disable virtualization
-  //    or expand buffer to prevent drag target elements from being unmounted.
-  //
-  // Current optimizations already in place:
-  // - Svelte keyed each blocks for efficient DOM reuse
-  // - RAF-throttled dragover calculations (reduces churn from 100s to 60fps max)
-  // - Data-driven card order (no DOM queries during drop operations)
-  // - Cached rendered groups for O(1) column lookups
 
   constructor(
     controller: QueryController,
@@ -397,7 +369,6 @@ export class KanbanView extends BasesView {
       localOrderKeys: Array.from(localCardOrderByColumn.keys()),
     });
 
-    // Update background styles (always apply since they may change independently)
     this.applyBackgroundStyles();
 
     if (!hasConfiguredGroupBy(groups)) {
@@ -418,7 +389,6 @@ export class KanbanView extends BasesView {
     );
     const columnsRightToLeft = this.getColumnsRightToLeftFromConfig();
 
-    // Debug: Log first column's entry order
     if (renderedGroups.length > 0) {
       const firstColumn = renderedGroups[0];
       const columnKey = getColumnKey(firstColumn.group.key);
@@ -429,11 +399,8 @@ export class KanbanView extends BasesView {
       });
     }
 
-    // Cache rendered groups for data-driven operations (avoids DOM queries)
     this.currentRenderedGroups = renderedGroups;
 
-    // Refresh entry indexes from rendered board order (needed for drag/drop and selection)
-    // Must happen after column order and local card order are applied
     this.refreshEntryIndexes(renderedGroups);
     this.updateSvelteProps();
 
@@ -483,7 +450,6 @@ export class KanbanView extends BasesView {
     selectedProperties: BasesPropertyId[],
     columnsRightToLeft: boolean,
   ): void {
-    // Get initial scroll positions for first mount
     const initialBoardScroll = this.getInitialBoardScroll();
     const columnScrollByKey: Record<string, number> = {};
     for (const { group } of renderedGroups) {
@@ -494,7 +460,6 @@ export class KanbanView extends BasesView {
       );
     }
 
-    // Set initial store values
     this.viewModel.setBoardData({
       groups: renderedGroups,
       groupByProperty,
@@ -569,12 +534,10 @@ export class KanbanView extends BasesView {
       },
     };
 
-    // Mount Svelte app once
     this.svelteApp = mount(KanbanRoot, {
       target: this.rootEl,
       props: {
         app: this.app as App,
-        // Static props that don't change
         selectedPathsStore: this.viewModel.selectedPathsStore,
         initialBoardScrollLeft: initialBoardScroll.left,
         initialBoardScrollTop: initialBoardScroll.top,
@@ -596,7 +559,6 @@ export class KanbanView extends BasesView {
           (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
           this.plugin.settings.columnBlur,
         columnsRightToLeft,
-        // Reactive stores
         groupsStore: this.viewModel.groupsStore,
         groupByPropertyStore: this.viewModel.groupByPropertyStore,
         selectedPropertiesStore: this.viewModel.selectedPropertiesStore,
@@ -615,8 +577,6 @@ export class KanbanView extends BasesView {
     groupByProperty: BasesPropertyId | null,
     selectedProperties: BasesPropertyId[],
   ): void {
-    // Only load scroll positions for new columns (not already in store)
-    // This avoids re-setting scroll positions for existing columns on every update
     const currentScrollByKey = this.viewModel.getColumnScrollByKey();
     const columnScrollByKey: Record<string, number> = {};
     let hasNewColumns = false;
@@ -624,10 +584,8 @@ export class KanbanView extends BasesView {
     for (const { group } of renderedGroups) {
       const columnKey = getColumnKey(group.key);
       if (columnKey in currentScrollByKey) {
-        // Preserve existing scroll position for known columns
         columnScrollByKey[columnKey] = currentScrollByKey[columnKey]!;
       } else {
-        // Load scroll position for new columns
         columnScrollByKey[columnKey] = loadColumnScrollPosition(
           this.viewSessionId,
           columnKey,
@@ -636,13 +594,10 @@ export class KanbanView extends BasesView {
       }
     }
 
-    // Always publish latest groups so cards react to in-place entry mutations
-    // (for example, file rename updating basename/path on existing entry objects).
     this.viewModel.groupsStore.set(renderedGroups);
     this.viewModel.groupByPropertyStore.set(groupByProperty);
     this.viewModel.selectedPropertiesStore.set(selectedProperties);
 
-    // Only update scroll store if there are new columns
     if (hasNewColumns) {
       this.viewModel.setColumnScrollByKey(columnScrollByKey);
     }
@@ -705,7 +660,9 @@ export class KanbanView extends BasesView {
 
   private async openRemoteBackgroundImagePicker(): Promise<void> {
     const currentInput = this.getBackgroundImageInput();
-    const currentValue = /^https?:\/\//i.test(currentInput.trim()) ? currentInput : "";
+    const currentValue = /^https?:\/\//i.test(currentInput.trim())
+      ? currentInput
+      : "";
     const nextValue = await this.openBackgroundImageUrlModal(currentValue);
     if (nextValue === null) {
       return;
@@ -735,8 +692,7 @@ export class KanbanView extends BasesView {
         value: currentValue,
         placeholder: "https://example.com/image.png",
       });
-      inputEl.style.width = "100%";
-      inputEl.style.marginBottom = "12px";
+      inputEl.setCssProps({ width: "100%", "margin-bottom": "12px" });
 
       const buttonContainer = modal.contentEl.createDiv({
         cls: "modal-button-container",
@@ -794,7 +750,6 @@ export class KanbanView extends BasesView {
   }
 
   private applyBackgroundStyles(): void {
-    // Build background config from current settings
     const config = {
       imageInput: this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
       brightness:
@@ -813,16 +768,13 @@ export class KanbanView extends BasesView {
         this.plugin.settings.columnBlur,
     };
 
-    // Resolve styles using the centralized function
     const styles = resolveBackgroundStyles(this.app as App, config);
 
-    // Apply column transparency CSS variable
     this.rootEl.style.setProperty(
       "--bases-kanban-column-transparency",
       String(styles.columnTransparencyValue),
     );
 
-    // Apply column blur CSS variable
     this.rootEl.style.setProperty(
       "--bases-kanban-column-blur",
       `${styles.columnBlurValue}px`,
@@ -1231,7 +1183,7 @@ export class KanbanView extends BasesView {
 
     const promises = files.map(async (file) => {
       try {
-        await this.app.vault.trash(file, true);
+        await this.app.fileManager.trashFile(file);
         trashedFiles.push(file.path);
       } catch (error) {
         console.error(`Failed to trash ${file.path}:`, error);
@@ -1416,8 +1368,6 @@ export class KanbanView extends BasesView {
   }
 
   private getColumnCardPaths(columnKey: string): string[] {
-    // Use cached rendered groups instead of querying DOM for better performance
-    // This is O(groups) to find the right column, then O(entries) to extract paths
     for (const { group, entries } of this.currentRenderedGroups) {
       if (getColumnKey(group.key) === columnKey) {
         return entries.map((entry) => entry.file.path);
@@ -1465,11 +1415,9 @@ export class KanbanView extends BasesView {
   }
 
   private updateSvelteProps(): void {
-    // Use a fresh Set reference so store subscribers update predictably.
     this.viewModel.setSelectedPaths(this.selectionState.selectedPaths);
   }
 
-  // Card drag handlers (replaces drag-controller)
   private startCardDrag(filePath: string, cardIndex: number): void {
     const draggedPaths = getDraggedPathsState(
       this.selectionState,
@@ -1533,7 +1481,6 @@ export class KanbanView extends BasesView {
     );
   }
 
-  // Column drag handlers (replaces drag-controller)
   private startColumnDrag(columnKey: string): void {
     logDragEvent("Column drag started", { columnKey });
     this.viewModel.startColumnDrag(columnKey);
@@ -1631,7 +1578,6 @@ export class KanbanView extends BasesView {
       PINNED_COLUMNS_OPTION_KEY,
       serializePinnedColumns(pinnedColumns),
     );
-    // Update store to trigger re-render
     this.viewModel.setPinnedColumns(new Set(pinnedColumns));
   }
 
@@ -1742,7 +1688,10 @@ export class KanbanView extends BasesView {
     this.updatePinnedColumns([...new Set(nextPinned)]);
   }
 
-  private renameColumnOrderKey(oldColumnKey: string, newColumnKey: string): void {
+  private renameColumnOrderKey(
+    oldColumnKey: string,
+    newColumnKey: string,
+  ): void {
     if (oldColumnKey === newColumnKey) {
       return;
     }
@@ -1794,12 +1743,12 @@ export class KanbanView extends BasesView {
         resolve(value);
       };
 
-      modal.titleEl.setText(`Rename column to \"${nextColumnName}\"?`);
+      modal.titleEl.setText(`Rename column to "${nextColumnName}"?`);
       modal.contentEl.createEl("p", {
         text:
           cardCount === 1
-            ? `This will update 1 card from \"${currentColumnName}\" to \"${nextColumnName}\".`
-            : `This will update ${cardCount} cards from \"${currentColumnName}\" to \"${nextColumnName}\".`,
+            ? `This will update 1 card from "${currentColumnName}" to "${nextColumnName}".`
+            : `This will update ${cardCount} cards from "${currentColumnName}" to "${nextColumnName}".`,
       });
 
       const buttonContainer = modal.contentEl.createDiv({
@@ -1864,8 +1813,7 @@ export class KanbanView extends BasesView {
         type: "text",
         value: defaultColumnName,
       });
-      inputEl.style.width = "100%";
-      inputEl.style.marginBottom = "12px";
+      inputEl.setCssProps({ width: "100%", "margin-bottom": "12px" });
 
       const buttonContainer = modal.contentEl.createDiv({
         cls: "modal-button-container",
@@ -2031,7 +1979,10 @@ export class KanbanView extends BasesView {
       if (entry === undefined) {
         return false;
       }
-      return !isSameGroupValue(entry.getValue(groupByProperty), targetGroupValue);
+      return !isSameGroupValue(
+        entry.getValue(groupByProperty),
+        targetGroupValue,
+      );
     });
 
     await this.mutationService.handleDrop({
@@ -2042,7 +1993,6 @@ export class KanbanView extends BasesView {
       entryByPath: this.entryByPath,
     });
 
-    // Reset drag state
     this.viewModel.endCardDrag();
 
     // Only force render when no group mutation occurred.
@@ -2072,7 +2022,8 @@ export class KanbanView extends BasesView {
     this.scrollSaveTimeout = window.setTimeout(() => {
       const configChanged = this.config !== configAtSchedule;
       const sessionChanged = this.viewSessionId !== sessionIdAtSchedule;
-      const viewUnavailable = this.svelteApp === null || !this.rootEl.isConnected;
+      const viewUnavailable =
+        this.svelteApp === null || !this.rootEl.isConnected;
       if (configChanged || sessionChanged || viewUnavailable) {
         logScrollEvent("Skipping stale debounced scroll save", {
           configChanged,
