@@ -1,6 +1,7 @@
 {
   "emptyColumnLabel": "(No value)",
   "placeholderText": "Set \"Group by\" in the sort menu to organize cards into columns.",
+  "enableAnimations": true,
   "scrollDebounceMs": 450,
   "trashShortcutKey": "Backspace",
   "addCardButtonText": "+",
@@ -25,5 +26,7 @@
   "backgroundBlur": 0,
   "columnTransparency": 100,
   "columnBlur": 8,
+  "migrationGroupProperty": "status",
+  "migrationQueryProperty": "legacyKanbanSource",
   "columnNameMaxLength": 40
 }
