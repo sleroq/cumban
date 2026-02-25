@@ -38,11 +38,13 @@ import { getKanbanViewOptions } from "./kanban-view/options";
 import {
   detectGroupByProperty,
   getColumnKey,
+  getTargetGroupValue,
   getPropertyValues,
   getPropertyCandidates,
   getSelectedProperties,
   getWritablePropertyKey,
   hasConfiguredGroupBy,
+  isSameGroupValue,
 } from "./kanban-view/utils";
 import { buildEntryIndexes, type EntryGroupLike } from "./kanban-view/indexing";
 import { KanbanMutationService } from "./kanban-view/mutations";
@@ -429,12 +431,11 @@ export class KanbanView extends BasesView {
       }
     }
 
-    // Update stores to trigger Svelte reactivity
-    this.viewModel.setBoardData({
-      groups: renderedGroups,
-      groupByProperty,
-      selectedProperties,
-    });
+    // Always publish latest groups so cards react to in-place entry mutations
+    // (for example, file rename updating basename/path on existing entry objects).
+    this.viewModel.groupsStore.set(renderedGroups);
+    this.viewModel.groupByPropertyStore.set(groupByProperty);
+    this.viewModel.selectedPropertiesStore.set(selectedProperties);
 
     // Only update scroll store if there are new columns
     if (hasNewColumns) {
@@ -1365,6 +1366,15 @@ export class KanbanView extends BasesView {
 
     logDebug("DROP", "Local card order updated, calling mutation service");
 
+    const targetGroupValue = getTargetGroupValue(groupKey);
+    const hasGroupMutation = draggedPaths.some((path) => {
+      const entry = this.entryByPath.get(path);
+      if (entry === undefined) {
+        return false;
+      }
+      return !isSameGroupValue(entry.getValue(groupByProperty), targetGroupValue);
+    });
+
     await this.mutationService.handleDrop({
       groupByProperty,
       groupByPropertyKey: getWritablePropertyKey(groupByProperty),
@@ -1376,11 +1386,13 @@ export class KanbanView extends BasesView {
     // Reset drag state
     this.viewModel.endCardDrag();
 
-    // Always render after drop to show updated card order
-    // Same-column reordering updates local card order config,
-    // so we need to rebuild rendered groups with the new order applied
-    logDragEvent("Triggering render after drop");
-    this.render();
+    // Only force render when no group mutation occurred.
+    // Cross-column moves trigger onDataUpdated(), so forcing render here can cause
+    // an extra render with stale group data before the authoritative data update.
+    if (!hasGroupMutation) {
+      logDragEvent("Triggering render after drop");
+      this.render();
+    }
   }
 
   private debouncedSaveBoardScrollPosition(
