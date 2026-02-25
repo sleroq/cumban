@@ -316,6 +316,7 @@ export class KanbanView extends BasesView {
   private readonly viewModel: KanbanViewModel;
   private columnsRightToLeft = false;
   private currentRenderedGroups: RenderedGroup[] = [];
+  private incrementalLoadRafId: number | null = null;
 
   constructor(
     controller: QueryController,
@@ -412,11 +413,20 @@ export class KanbanView extends BasesView {
 
     if (this.svelteApp === null) {
       logRenderEvent("Mounting Svelte app for first render");
+      const shellGroups: RenderedGroup[] = renderedGroups.map((rg) => ({
+        group: rg.group,
+        entries: [],
+      }));
       this.mountSvelteApp(
-        renderedGroups,
+        shellGroups,
         groupByProperty,
         selectedProperties,
         columnsRightToLeft,
+      );
+      this.scheduleIncrementalCardLoad(
+        renderedGroups,
+        groupByProperty,
+        selectedProperties,
       );
     } else {
       if (this.columnsRightToLeft !== columnsRightToLeft) {
@@ -433,6 +443,7 @@ export class KanbanView extends BasesView {
         });
         return;
       }
+      this.cancelIncrementalLoad();
       logRenderEvent("Updating Svelte app props (Svelte handles DOM diffing)");
       this.updateSvelteAppProps(
         renderedGroups,
@@ -2065,7 +2076,73 @@ export class KanbanView extends BasesView {
     return { left: legacy.scrollLeft, top: legacy.scrollTop };
   }
 
+  private cancelIncrementalLoad(): void {
+    if (this.incrementalLoadRafId !== null) {
+      cancelAnimationFrame(this.incrementalLoadRafId);
+      this.incrementalLoadRafId = null;
+    }
+  }
+
+  private scheduleIncrementalCardLoad(
+    renderedGroups: RenderedGroup[],
+    groupByProperty: BasesPropertyId | null,
+    selectedProperties: BasesPropertyId[],
+  ): void {
+    this.cancelIncrementalLoad();
+
+    const CARDS_PER_BATCH = 100;
+    const numColumns = renderedGroups.length;
+    if (numColumns === 0) {
+      return;
+    }
+
+    const perColumnBatch = Math.max(
+      1,
+      Math.ceil(CARDS_PER_BATCH / numColumns),
+    );
+    const revealed = new Array<number>(numColumns).fill(0);
+    const totals = renderedGroups.map((g) => g.entries.length);
+
+    const loadNextBatch = (): void => {
+      let anyAdded = false;
+      for (let i = 0; i < numColumns; i++) {
+        const before = revealed[i];
+        revealed[i] = Math.min(revealed[i]! + perColumnBatch, totals[i]!);
+        if (revealed[i]! > before!) {
+          anyAdded = true;
+        }
+      }
+
+      if (!anyAdded) {
+        this.incrementalLoadRafId = null;
+        return;
+      }
+
+      const partialGroups: RenderedGroup[] = renderedGroups.map((rg, i) => ({
+        group: rg.group,
+        entries: rg.entries.slice(0, revealed[i]),
+      }));
+
+      this.viewModel.setBoardData({
+        groups: partialGroups,
+        groupByProperty,
+        selectedProperties,
+      });
+
+      const allDone = revealed.every((r, i) => r >= totals[i]!);
+      if (!allDone) {
+        this.incrementalLoadRafId = requestAnimationFrame(loadNextBatch);
+      } else {
+        this.incrementalLoadRafId = null;
+        logRenderEvent("Incremental card load complete");
+      }
+    };
+
+    this.incrementalLoadRafId = requestAnimationFrame(loadNextBatch);
+  }
+
   private unmountSvelteApp(): void {
+    this.cancelIncrementalLoad();
     if (this.svelteApp === null) {
       return;
     }
