@@ -25,7 +25,21 @@ export class PropertyValueEditorSuggest extends AbstractInputSuggest<string> {
   }
 
   protected getSuggestions(query: string): string[] {
-    return this.getItems(query);
+    const rawSuggestions = this.getItems(query);
+    const dedupedSuggestions: string[] = [];
+    const seenSuggestions = new Set<string>();
+
+    for (const rawSuggestion of rawSuggestions) {
+      const normalizedSuggestion = this.normalizeSuggestionValue(rawSuggestion);
+      if (seenSuggestions.has(normalizedSuggestion)) {
+        continue;
+      }
+
+      seenSuggestions.add(normalizedSuggestion);
+      dedupedSuggestions.push(normalizedSuggestion);
+    }
+
+    return dedupedSuggestions;
   }
 
   renderSuggestion(item: string, el: HTMLElement): void {
@@ -69,6 +83,14 @@ export class PropertyValueEditorSuggest extends AbstractInputSuggest<string> {
     super.selectSuggestion(item, evt);
     this.onChoose(item);
     this.close();
+  }
+
+  private normalizeSuggestionValue(value: string): string {
+    if (!value.startsWith("#")) {
+      return value;
+    }
+
+    return value.slice(1);
   }
 
   private getEditableLinkInfo(
