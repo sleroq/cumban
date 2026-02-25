@@ -13,6 +13,7 @@ export type KanbanViewModel = {
   pinnedColumnsStore: Writable<Set<string>>;
   draggingCardSourcePathStore: Writable<string | null>;
   draggingColumnSourceKeyStore: Writable<string | null>;
+  animationsReadyStore: Writable<boolean>;
   setSelectedPaths: (selectedPaths: Set<string>) => void;
   setBoardData: (params: {
     groups: RenderedGroup[];
@@ -22,6 +23,7 @@ export type KanbanViewModel = {
   setColumnScrollByKey: (scrollByKey: Record<string, number>) => void;
   setPinnedColumns: (columns: Set<string>) => void;
   getColumnScrollByKey: () => Record<string, number>;
+  setAnimationsReady: (ready: boolean) => void;
   startCardDrag: (filePath: string) => void;
   endCardDrag: () => void;
   startColumnDrag: (columnKey: string) => void;
@@ -37,6 +39,7 @@ export function createKanbanViewModel(): KanbanViewModel {
   const pinnedColumnsStore = writable(new Set<string>());
   const draggingCardSourcePathStore = writable<string | null>(null);
   const draggingColumnSourceKeyStore = writable<string | null>(null);
+  const animationsReadyStore = writable(false);
 
   function areStringArraysEqual(a: string[], b: string[]): boolean {
     if (a === b) {
@@ -111,6 +114,7 @@ export function createKanbanViewModel(): KanbanViewModel {
     pinnedColumnsStore,
     draggingCardSourcePathStore,
     draggingColumnSourceKeyStore,
+    animationsReadyStore,
 
     setSelectedPaths(selectedPaths: Set<string>): void {
       selectedPathsStore.set(new Set(selectedPaths));
@@ -144,6 +148,10 @@ export function createKanbanViewModel(): KanbanViewModel {
 
     getColumnScrollByKey(): Record<string, number> {
       return get(columnScrollByKeyStore);
+    },
+
+    setAnimationsReady(ready: boolean): void {
+      animationsReadyStore.set(ready);
     },
 
     startCardDrag(filePath: string): void {

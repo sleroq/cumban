@@ -43,8 +43,10 @@
         callbacks,
     }: Props = $props();
 
-    const { settingsStore } = getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
+    const { settingsStore, animationsReadyStore } =
+        getContext<KanbanContext>(KANBAN_CONTEXT_KEY);
     const settings = $derived($settingsStore);
+    const animationsReady = $derived($animationsReadyStore);
 
     let boardEl: HTMLElement | null = $state(null);
     let suppressScrollEvents = $state(true);
@@ -59,7 +61,7 @@
         { from, to }: { from: DOMRect; to: DOMRect },
         options?: { delay?: number; duration?: number | ((len: number) => number); easing?: (t: number) => number },
     ): { delay?: number; duration?: number; easing?: (t: number) => number; css?: (t: number, u: number) => string; tick?: (t: number, u: number) => void } {
-        if (!settings.enableAnimations) {
+        if (!settings.enableAnimations || !animationsReady) {
             return { duration: 0 };
         }
         return flip(node, { from, to }, options);

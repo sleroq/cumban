@@ -34,6 +34,7 @@
         selectedPropertiesStore: Readable<BasesPropertyId[]>;
         columnScrollByKeyStore: Readable<Record<string, number>>;
         pinnedColumnsStore: Readable<Set<string>>;
+        animationsReadyStore: Readable<boolean>;
         callbacks: KanbanCallbacks;
     };
 
@@ -54,6 +55,7 @@
         selectedPropertiesStore,
         columnScrollByKeyStore,
         pinnedColumnsStore,
+        animationsReadyStore,
         callbacks,
     }: Props = $props();
 
@@ -74,6 +76,9 @@
         },
         get pinnedColumnsStore() {
             return pinnedColumnsStore;
+        },
+        get animationsReadyStore() {
+            return animationsReadyStore;
         },
     }) as KanbanContext;
     setContext(KANBAN_CONTEXT_KEY, contextValue);

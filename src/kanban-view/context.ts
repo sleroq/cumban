@@ -13,6 +13,7 @@ export type KanbanContext = {
   settingsStore: Readable<BasesKanbanSettings>;
   selectedPathsStore: Readable<Set<string>>;
   pinnedColumnsStore: Readable<Set<string>>;
+  animationsReadyStore: Readable<boolean>;
 };
 
 export const KANBAN_CONTEXT_KEY = Symbol("kanban-context");

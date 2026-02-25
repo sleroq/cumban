@@ -438,12 +438,14 @@ export class KanbanView extends BasesView {
           selectedProperties,
           columnsRightToLeft,
         );
+        this.viewModel.setAnimationsReady(true);
         logRenderEvent("Remounted Svelte app for columns direction change", {
           columnsRightToLeft,
         });
         return;
       }
       this.cancelIncrementalLoad();
+      this.viewModel.setAnimationsReady(true);
       logRenderEvent("Updating Svelte app props (Svelte handles DOM diffing)");
       this.updateSvelteAppProps(
         renderedGroups,
@@ -575,6 +577,7 @@ export class KanbanView extends BasesView {
         selectedPropertiesStore: this.viewModel.selectedPropertiesStore,
         columnScrollByKeyStore: this.viewModel.columnScrollByKeyStore,
         pinnedColumnsStore: this.viewModel.pinnedColumnsStore,
+        animationsReadyStore: this.viewModel.animationsReadyStore,
         callbacks,
       },
     });
@@ -2089,6 +2092,7 @@ export class KanbanView extends BasesView {
     selectedProperties: BasesPropertyId[],
   ): void {
     this.cancelIncrementalLoad();
+    this.viewModel.setAnimationsReady(false);
 
     const CARDS_PER_BATCH = 100;
     const numColumns = renderedGroups.length;
@@ -2134,6 +2138,7 @@ export class KanbanView extends BasesView {
         this.incrementalLoadRafId = requestAnimationFrame(loadNextBatch);
       } else {
         this.incrementalLoadRafId = null;
+        this.viewModel.setAnimationsReady(true);
         logRenderEvent("Incremental card load complete");
       }
     };
