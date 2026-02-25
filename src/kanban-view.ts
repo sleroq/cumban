@@ -1908,7 +1908,6 @@ export class KanbanView extends BasesView {
     }
 
     logDebug("PIN", `Added pinned empty column ${nextColumnKey}`);
-    this.render();
   }
 
   private injectPinnedEmptyColumns(
@@ -2012,10 +2011,10 @@ export class KanbanView extends BasesView {
     // Only force render when no group mutation occurred.
     // Cross-column moves trigger onDataUpdated(), so forcing render here can cause
     // an extra render with stale group data before the authoritative data update.
-    if (!hasGroupMutation) {
-      logDragEvent("Triggering render after drop");
-      this.render();
-    }
+    // if (!hasGroupMutation) {
+    //   logDragEvent("Triggering render after drop");
+    //   this.render(); // FIXME: Do we need this at all?
+    // }
   }
 
   private debouncedSaveBoardScrollPosition(
