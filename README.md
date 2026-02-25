@@ -7,6 +7,7 @@
 - Inline editing of properties on the cards with suggestions
 - Automatically migrate old Kanban boards to Bases with the command
 - Custom backgrounds with brightness/blur controls
+- Nice animations
 - Integration with [Pretty Properties](https://github.com/anareaty/pretty-properties) for user-defined tag colors
 - Rename columns and create new
 - Rendering of any selected properties
