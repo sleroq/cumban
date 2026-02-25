@@ -345,6 +345,8 @@ export class KanbanView extends BasesView {
       column: {
         createCard: (grpByProperty: BasesPropertyId | null, grpKey: unknown) =>
           void this.createCardForColumn(grpByProperty, grpKey),
+        rename: (columnKey: string, grpKey: unknown, nextName: string) =>
+          this.renameColumn(columnKey, grpKey, nextName),
         startDrag: (columnKey: string) => this.startColumnDrag(columnKey),
         endDrag: () => this.endColumnDrag(),
         drop: (
@@ -1288,6 +1290,186 @@ export class KanbanView extends BasesView {
     logDebug("PIN", `Toggled pin for ${columnKey}`, {
       isPinned: pinnedSet.has(columnKey),
       totalPinned: newPinned.length,
+    });
+  }
+
+  private async renameColumn(
+    columnKey: string,
+    groupKey: unknown,
+    nextName: string,
+  ): Promise<void> {
+    const trimmedNextName = nextName.trim();
+    if (trimmedNextName.length === 0) {
+      return;
+    }
+
+    const currentGroupValue = getTargetGroupValue(groupKey);
+    if (currentGroupValue === trimmedNextName) {
+      return;
+    }
+
+    const groupByProperty = this.getActiveGroupByProperty();
+    if (groupByProperty === null) {
+      return;
+    }
+
+    const groupByPropertyKey = getWritablePropertyKey(groupByProperty);
+    if (groupByPropertyKey === null) {
+      return;
+    }
+
+    const columnEntries = this.getEntriesForColumn(columnKey);
+    if (columnEntries.length > 0) {
+      const confirmed = await this.openRenameColumnConfirmModal(
+        columnKey,
+        trimmedNextName,
+        columnEntries.length,
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    for (const entry of columnEntries) {
+      await this.mutationService.updateCardPropertyValues({
+        file: entry.file,
+        propertyId: groupByProperty,
+        propertyKey: groupByPropertyKey,
+        mode: "single",
+        values: [trimmedNextName],
+      });
+    }
+
+    this.renamePinnedColumnKey(columnKey, trimmedNextName);
+    this.renameColumnOrderKey(columnKey, trimmedNextName);
+    this.renameLocalCardOrderColumnKey(columnKey, trimmedNextName);
+  }
+
+  private getActiveGroupByProperty(): BasesPropertyId | null {
+    const rawGroups: BasesEntryGroup[] = this.data?.groupedData ?? [];
+    return detectGroupByProperty(
+      rawGroups,
+      getPropertyCandidates(
+        getSelectedProperties(this.data?.properties),
+        this.allProperties,
+      ),
+    );
+  }
+
+  private getEntriesForColumn(columnKey: string): BasesEntry[] {
+    const renderedGroup = this.currentRenderedGroups.find(({ group }) => {
+      return getColumnKey(group.key) === columnKey;
+    });
+    return renderedGroup?.entries ?? [];
+  }
+
+  private renamePinnedColumnKey(
+    oldColumnKey: string,
+    newColumnKey: string,
+  ): void {
+    if (oldColumnKey === newColumnKey) {
+      return;
+    }
+
+    const currentPinned = this.getPinnedColumnsFromConfig();
+    if (!currentPinned.includes(oldColumnKey)) {
+      return;
+    }
+
+    const nextPinned = currentPinned.map((columnKey) => {
+      return columnKey === oldColumnKey ? newColumnKey : columnKey;
+    });
+    this.updatePinnedColumns([...new Set(nextPinned)]);
+  }
+
+  private renameColumnOrderKey(oldColumnKey: string, newColumnKey: string): void {
+    if (oldColumnKey === newColumnKey) {
+      return;
+    }
+
+    const currentOrder = this.getColumnOrderFromConfig();
+    if (!currentOrder.includes(oldColumnKey)) {
+      return;
+    }
+
+    const nextOrder = currentOrder.map((columnKey) => {
+      return columnKey === oldColumnKey ? newColumnKey : columnKey;
+    });
+    this.updateColumnOrder(nextOrder);
+  }
+
+  private renameLocalCardOrderColumnKey(
+    oldColumnKey: string,
+    newColumnKey: string,
+  ): void {
+    if (oldColumnKey === newColumnKey) {
+      return;
+    }
+
+    const localOrderByColumn = this.getLocalCardOrderByColumn();
+    const existingOrder = localOrderByColumn.get(oldColumnKey);
+    if (existingOrder === undefined) {
+      return;
+    }
+
+    localOrderByColumn.delete(oldColumnKey);
+    localOrderByColumn.set(newColumnKey, existingOrder);
+    this.setLocalCardOrderByColumn(localOrderByColumn);
+  }
+
+  private openRenameColumnConfirmModal(
+    currentColumnName: string,
+    nextColumnName: string,
+    cardCount: number,
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      const modal = new Modal(this.app as App);
+      let resolved = false;
+
+      const finish = (value: boolean): void => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        resolve(value);
+      };
+
+      modal.titleEl.setText(`Rename column to \"${nextColumnName}\"?`);
+      modal.contentEl.createEl("p", {
+        text:
+          cardCount === 1
+            ? `This will update 1 card from \"${currentColumnName}\" to \"${nextColumnName}\".`
+            : `This will update ${cardCount} cards from \"${currentColumnName}\" to \"${nextColumnName}\".`,
+      });
+
+      const buttonContainer = modal.contentEl.createDiv({
+        cls: "modal-button-container",
+      });
+
+      const cancelButton = buttonContainer.createEl("button", {
+        text: this.plugin.settings.cancelButtonText,
+        cls: "mod-secondary",
+      });
+      cancelButton.addEventListener("click", () => {
+        finish(false);
+        modal.close();
+      });
+
+      const confirmButton = buttonContainer.createEl("button", {
+        text: "Rename",
+        cls: "mod-cta",
+      });
+      confirmButton.addEventListener("click", () => {
+        finish(true);
+        modal.close();
+      });
+
+      modal.onClose = () => {
+        modal.contentEl.empty();
+        finish(false);
+      };
+
+      modal.open();
     });
   }
 

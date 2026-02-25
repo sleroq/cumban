@@ -83,6 +83,10 @@
     const columnName = $derived(
         getColumnName(groupKey, settings.emptyColumnLabel),
     );
+    let isEditingColumnName = $state(false);
+    let editingColumnName = $state("");
+    let columnNameInputEl: HTMLInputElement | null = $state(null);
+    let isSubmittingColumnRename = $state(false);
 
     // Extract stores to local variables so we can use $ prefix
     const columnIsDragging = $derived(dragState.isColumnDragging);
@@ -202,6 +206,48 @@
             placement: "after",
         };
     }
+
+    function beginColumnRename(evt: Event): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (isEditingColumnName) {
+            return;
+        }
+        editingColumnName = columnName;
+        isEditingColumnName = true;
+        queueMicrotask(() => {
+            columnNameInputEl?.focus();
+            columnNameInputEl?.select();
+        });
+    }
+
+    function cancelColumnRename(): void {
+        if (isSubmittingColumnRename) {
+            return;
+        }
+        isEditingColumnName = false;
+        editingColumnName = "";
+    }
+
+    async function submitColumnRename(): Promise<void> {
+        if (isSubmittingColumnRename) {
+            return;
+        }
+        const nextName = editingColumnName.trim();
+        if (nextName.length === 0 || nextName === columnName) {
+            cancelColumnRename();
+            return;
+        }
+
+        isSubmittingColumnRename = true;
+        try {
+            await callbacks.column.rename(columnKey, groupKey, nextName);
+            isEditingColumnName = false;
+            editingColumnName = "";
+        } finally {
+            isSubmittingColumnRename = false;
+        }
+    }
 </script>
 
 <div
@@ -260,12 +306,44 @@
 >
     <div
         class="bases-kanban-column-header"
-        draggable="true"
+        draggable={!isEditingColumnName}
         role="button"
         tabindex="0"
+        onclick={(evt) => {
+            const target = evt.target as HTMLElement;
+            if (
+                target.closest(".bases-kanban-pin-button") !== null ||
+                target.closest(".bases-kanban-add-card-button") !== null ||
+                target.closest(".bases-kanban-column-name-input") !== null
+            ) {
+                return;
+            }
+            beginColumnRename(evt);
+        }}
+        onkeydown={(evt) => {
+            if (evt.key !== "Enter" && evt.key !== " ") {
+                return;
+            }
+            const target = evt.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+            if (
+                target.closest(".bases-kanban-pin-button") !== null ||
+                target.closest(".bases-kanban-add-card-button") !== null ||
+                target.closest(".bases-kanban-column-name-input") !== null
+            ) {
+                return;
+            }
+            beginColumnRename(evt);
+        }}
         ondragover={handleHeaderCardDragOver}
         ondrop={handleHeaderCardDrop}
         ondragstart={(evt) => {
+            if (isEditingColumnName) {
+                evt.preventDefault();
+                return;
+            }
             // Don't initiate drag if clicking the add button
             const target = evt.target as HTMLElement;
             if (target.closest(".bases-kanban-add-card-button") !== null) {
@@ -284,7 +362,42 @@
         }}
     >
         <div class="bases-kanban-column-handle">
-            <h3 style:width="{settings.columnHeaderWidth}px">{columnName}</h3>
+            {#if isEditingColumnName}
+                <input
+                    bind:this={columnNameInputEl}
+                    class="bases-kanban-column-name-input"
+                    type="text"
+                    value={editingColumnName}
+                    style:width="{settings.columnHeaderWidth}px"
+                    onmousedown={(evt) => evt.stopPropagation()}
+                    onclick={(evt) => evt.stopPropagation()}
+                    oninput={(evt) => {
+                        const target = evt.target;
+                        if (!(target instanceof HTMLInputElement)) {
+                            return;
+                        }
+                        editingColumnName = target.value;
+                    }}
+                    onkeydown={(evt) => {
+                        if (evt.key === "Enter") {
+                            evt.preventDefault();
+                            void submitColumnRename();
+                            return;
+                        }
+                        if (evt.key === "Escape") {
+                            evt.preventDefault();
+                            cancelColumnRename();
+                        }
+                    }}
+                    onblur={() => {
+                        void submitColumnRename();
+                    }}
+                />
+            {:else}
+                <h3 style:width="{settings.columnHeaderWidth}px">
+                    {columnName}
+                </h3>
+            {/if}
         </div>
         <span class="bases-kanban-column-count">{entries.length}</span>
         <button

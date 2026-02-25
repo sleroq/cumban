@@ -35,6 +35,7 @@ export type KanbanCardCallbacks = {
 
 export type KanbanColumnCallbacks = {
   createCard: (groupByProperty: BasesPropertyId | null, groupKey: unknown) => void;
+  rename: (columnKey: string, groupKey: unknown, nextName: string) => Promise<void>;
   startDrag: (columnKey: string) => void;
   endDrag: () => void;
   drop: (
