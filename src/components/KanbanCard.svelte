@@ -72,6 +72,10 @@
     let isSaving = $state(false);
     let activeSuggest: PropertyValueEditorSuggest | null = null;
     let optimisticPropertyValues: Record<string, unknown> = $state({});
+    let titleInputEl: HTMLInputElement | null = $state(null);
+    let isEditingTitle = $state(false);
+    let titleDraft = $state("");
+    let isRenamingTitle = $state(false);
 
     const filePath = $derived(entry.file.path);
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
@@ -653,9 +657,26 @@
     }
 
     function handleMouseDown(evt: MouseEvent): void {
-        if (groupByProperty !== null) {
-            isDraggable = evt.button === 0;
+        if (groupByProperty === null) {
+            return;
         }
+
+        if (evt.button !== 0) {
+            isDraggable = false;
+            return;
+        }
+
+        const target = evt.target;
+        if (
+            target instanceof Node &&
+            (isTargetInsidePropertyEditor(target) ||
+                isTargetInsideTitleEditor(target))
+        ) {
+            isDraggable = false;
+            return;
+        }
+
+        isDraggable = true;
     }
 
     function handleMouseUp(): void {
@@ -745,6 +766,72 @@
 
     function handleTitleContextMenu(evt: MouseEvent): void {
         callbacks.card.contextMenu(evt, entry);
+    }
+
+    function stopTitleEditorEvent(evt: MouseEvent): void {
+        evt.stopPropagation();
+    }
+
+    function beginTitleEditing(evt: MouseEvent): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (isEditingTitle || isRenamingTitle) {
+            return;
+        }
+
+        titleDraft = entry.file.basename;
+        isEditingTitle = true;
+        queueMicrotask(() => {
+            titleInputEl?.focus();
+            titleInputEl?.select();
+        });
+    }
+
+    function cancelTitleEditing(): void {
+        isEditingTitle = false;
+        titleDraft = "";
+        isRenamingTitle = false;
+    }
+
+    async function saveTitleEditing(): Promise<void> {
+        if (!isEditingTitle || isRenamingTitle) {
+            return;
+        }
+
+        const nextTitle = titleDraft.trim();
+        if (nextTitle.length === 0 || nextTitle === entry.file.basename) {
+            cancelTitleEditing();
+            return;
+        }
+
+        isRenamingTitle = true;
+        try {
+            await callbacks.card.rename(filePath, nextTitle);
+        } finally {
+            cancelTitleEditing();
+        }
+    }
+
+    function handleTitleInputKeyDown(evt: KeyboardEvent): void {
+        evt.stopPropagation();
+        if (evt.key === "Enter") {
+            evt.preventDefault();
+            void saveTitleEditing();
+            return;
+        }
+
+        if (evt.key === "Escape") {
+            evt.preventDefault();
+            cancelTitleEditing();
+        }
+    }
+
+    function isTargetInsideTitleEditor(target: Node): boolean {
+        const inputEl = titleInputEl;
+        if (inputEl === null) {
+            return false;
+        }
+        return inputEl.contains(target);
     }
 
     function handlePropertyLinkClick(evt: MouseEvent, target: string): void {
@@ -934,16 +1021,53 @@
     tabindex="0"
 >
     <div class="bases-kanban-card-title">
-        <!-- svelte-ignore a11y_invalid_attribute -->
-        <a
-            href="#"
-            class="internal-link"
-            style:color={settings.cardTitleColor}
-            onclick={handleLinkClick}
-            oncontextmenu={handleTitleContextMenu}
-        >
-            {title}
-        </a>
+        {#if isEditingTitle}
+            <input
+                bind:this={titleInputEl}
+                class="bases-kanban-card-title-input"
+                type="text"
+                bind:value={titleDraft}
+                onmousedown={stopTitleEditorEvent}
+                onclick={stopTitleEditorEvent}
+                onkeydown={handleTitleInputKeyDown}
+                onblur={() => {
+                    void saveTitleEditing();
+                }}
+            />
+        {:else}
+            <!-- svelte-ignore a11y_invalid_attribute -->
+            <a
+                href="#"
+                class="internal-link"
+                style:color={settings.cardTitleColor}
+                onclick={handleLinkClick}
+                oncontextmenu={handleTitleContextMenu}
+            >
+                {title}
+            </a>
+            <button
+                class="bases-kanban-card-title-edit-button"
+                type="button"
+                aria-label="Rename card title"
+                onclick={beginTitleEditing}
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="svg-icon lucide-pencil"
+                ><path
+                        d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                    ></path><path d="m15 5 4 4"></path></svg
+                >
+            </button>
+        {/if}
     </div>
 
     {#if propertiesToDisplay.length > 0}
@@ -967,6 +1091,7 @@
                         class="bases-kanban-property-row"
                         class:bases-kanban-property-row-editable={mode !==
                             null && !isCheckboxProperty}
+                        class:bases-kanban-property-row-editing={isEditingProperty}
                         onclick={(evt: MouseEvent) =>
                             handlePropertyRowClick(
                                 evt,
@@ -1294,6 +1419,28 @@
                                     >
                                 {/if}
                             {/each}
+                        {/if}
+                        {#if mode !== null && !isCheckboxProperty && !isEditingProperty}
+                            <span
+                                class="bases-kanban-property-edit-indicator"
+                                aria-hidden="true"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="svg-icon lucide-pencil"
+                                ><path
+                                        d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                                    ></path><path d="m15 5 4 4"></path></svg
+                                >
+                            </span>
                         {/if}
                     </div>
                 {/if}

@@ -7,6 +7,7 @@ import {
   Menu,
   Modal,
   Notice,
+  normalizePath,
   QueryController,
   TFile,
 } from "obsidian";
@@ -320,6 +321,8 @@ export class KanbanView extends BasesView {
           this.showCardContextMenu(evt, entry.file),
         linkClick: (evt: MouseEvent, target: string) =>
           this.handleCardLinkClick(evt, target),
+        rename: (filePath: string, nextTitle: string) =>
+          this.renameCard(filePath, nextTitle),
         getPropertyEditorMode: (propertyId: BasesPropertyId) =>
           this.getPropertyEditorMode(propertyId),
         getPropertyType: (propertyId: BasesPropertyId) =>
@@ -513,6 +516,32 @@ export class KanbanView extends BasesView {
       "",
       isOpenToRight ? "split" : isNewTab,
     );
+  }
+
+  private async renameCard(filePath: string, nextTitle: string): Promise<void> {
+    const trimmedTitle = nextTitle.trim();
+    if (trimmedTitle.length === 0) {
+      return;
+    }
+
+    const entry = this.entryByPath.get(filePath);
+    if (entry === undefined) {
+      return;
+    }
+
+    const file = entry.file;
+    if (trimmedTitle === file.basename) {
+      return;
+    }
+
+    const parentPath = file.parent?.path ?? "";
+    const nextFilePath = normalizePath(
+      parentPath.length === 0
+        ? `${trimmedTitle}.${file.extension}`
+        : `${parentPath}/${trimmedTitle}.${file.extension}`,
+    );
+
+    await this.app.fileManager.renameFile(file, nextFilePath);
   }
 
   private showCardContextMenu(evt: MouseEvent, file: TFile): void {

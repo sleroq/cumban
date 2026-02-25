@@ -312,6 +312,7 @@
         onclick={(evt) => {
             const target = evt.target as HTMLElement;
             if (
+                target.closest(".bases-kanban-column-name-display") === null ||
                 target.closest(".bases-kanban-pin-button") !== null ||
                 target.closest(".bases-kanban-add-card-button") !== null ||
                 target.closest(".bases-kanban-column-name-input") !== null
@@ -329,6 +330,7 @@
                 return;
             }
             if (
+                target.closest(".bases-kanban-column-name-display") === null ||
                 target.closest(".bases-kanban-pin-button") !== null ||
                 target.closest(".bases-kanban-add-card-button") !== null ||
                 target.closest(".bases-kanban-column-name-input") !== null
@@ -394,9 +396,32 @@
                     }}
                 />
             {:else}
-                <h3 style:width="{settings.columnHeaderWidth}px">
-                    {columnName}
-                </h3>
+                <div
+                    class="bases-kanban-column-name-display"
+                    style:width="{settings.columnHeaderWidth}px"
+                >
+                    <h3>{columnName}</h3>
+                    <span
+                        class="bases-kanban-column-edit-indicator"
+                        aria-hidden="true"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="svg-icon lucide-pencil"
+                        ><path
+                                d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                            ></path><path d="m15 5 4 4"></path></svg
+                        >
+                    </span>
+                </div>
             {/if}
         </div>
         <span class="bases-kanban-column-count">{entries.length}</span>
