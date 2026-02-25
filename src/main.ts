@@ -44,6 +44,41 @@ export default class BasesKanbanPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "select-kanban-background-image",
+      name: "Select kanban background image",
+      checkCallback: (checking) => {
+        const view = this.getActiveKanbanView();
+        if (view === null) {
+          return false;
+        }
+
+        if (!checking) {
+          view.openBackgroundImagePicker();
+        }
+
+        return true;
+      },
+    });
+
+    this.addCommand({
+      id: "add-kanban-column",
+      name: "Add Kanban column",
+      checkCallback: (checking) => {
+        const activeKanbanView = this.getActiveKanbanView();
+        if (activeKanbanView === null) {
+          return false;
+        }
+
+        if (checking) {
+          return true;
+        }
+
+        activeKanbanView.requestAddColumn();
+        return true;
+      },
+    });
+
     this.registerBasesView("cumban", {
       name: "Bases Kanban",
       icon: "lucide-kanban",
@@ -70,6 +105,26 @@ export default class BasesKanbanPlugin extends Plugin {
 
   unregisterKanbanView(view: KanbanView): void {
     this.kanbanViews.delete(view);
+  }
+
+  private getActiveKanbanView(): KanbanView | null {
+    const activeLeaf = this.app.workspace.getMostRecentLeaf();
+    if (activeLeaf === null) {
+      return null;
+    }
+
+    const leafContainer = (activeLeaf.view as { containerEl?: unknown }).containerEl;
+    if (!(leafContainer instanceof HTMLElement)) {
+      return null;
+    }
+
+    for (const view of this.kanbanViews) {
+      if (view.isRenderedWithin(leafContainer)) {
+        return view;
+      }
+    }
+
+    return null;
   }
 
   private updateCssVariables(): void {

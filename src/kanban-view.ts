@@ -9,6 +9,8 @@ import {
   Notice,
   normalizePath,
   QueryController,
+  setIcon,
+  SuggestModal,
   TFile,
 } from "obsidian";
 import { mount, unmount } from "svelte";
@@ -108,6 +110,195 @@ type AppWithMetadataTypeManager = App & {
   metadataTypeManager?: MetadataTypeManagerLike;
 };
 
+type BackgroundImageSourceOption = "local" | "remote";
+
+const BACKGROUND_IMAGE_FILE_EXTENSIONS = new Set<string>([
+  "avif",
+  "bmp",
+  "gif",
+  "jpeg",
+  "jpg",
+  "png",
+  "svg",
+  "webp",
+]);
+
+class BackgroundImageSourceSuggestModal extends SuggestModal<BackgroundImageSourceOption> {
+  private readonly options: Record<BackgroundImageSourceOption, string> = {
+    local: "Vault image",
+    remote: "Remote image URL",
+  };
+
+  constructor(
+    app: App,
+    private readonly currentInput: string,
+    private readonly chooseLocal: () => void,
+    private readonly chooseRemote: () => void,
+  ) {
+    super(app);
+    this.setPlaceholder("Choose background image source");
+  }
+
+  getSuggestions(query: string): BackgroundImageSourceOption[] {
+    const normalizedQuery = query.toLowerCase();
+    return (Object.keys(this.options) as BackgroundImageSourceOption[]).filter(
+      (key) => this.options[key].toLowerCase().includes(normalizedQuery),
+    );
+  }
+
+  renderSuggestion(value: BackgroundImageSourceOption, el: HTMLElement): void {
+    const rowEl = el.createDiv({ cls: "suggestion-content" });
+    const titleEl = rowEl.createDiv({ cls: "suggestion-title" });
+
+    const sourceIconEl = titleEl.createSpan({ cls: "suggestion-flair" });
+    setIcon(sourceIconEl, value === "local" ? "image" : "globe");
+    titleEl.appendText(" ");
+
+    titleEl.createSpan({ text: this.options[value] });
+
+    const currentSource = this.getCurrentSource();
+    if (currentSource !== value) {
+      return;
+    }
+
+    const statusEl = rowEl.createDiv({
+      cls: "bases-kanban-background-image-suggestion-path",
+    });
+    const checkEl = statusEl.createSpan({ cls: "suggestion-flair" });
+    setIcon(checkEl, "check");
+    statusEl.createSpan({ text: this.getCurrentLabel() });
+  }
+
+  onChooseSuggestion(value: BackgroundImageSourceOption): void {
+    if (value === "local") {
+      this.chooseLocal();
+      return;
+    }
+    this.chooseRemote();
+  }
+
+  private getCurrentSource(): BackgroundImageSourceOption | null {
+    if (this.currentInput.length === 0) {
+      return null;
+    }
+    return /^https?:\/\//i.test(this.currentInput) ? "remote" : "local";
+  }
+
+  private getCurrentLabel(): string {
+    if (this.currentInput.length === 0) {
+      return "Current: none";
+    }
+    return `Current: ${this.currentInput}`;
+  }
+}
+
+class LocalBackgroundImageSuggestModal extends SuggestModal<TFile> {
+  private suggestions: TFile[] = [];
+  private observer: MutationObserver | null = null;
+  private didConfirm = false;
+  private lastPreviewPath: string | null = null;
+
+  constructor(
+    app: App,
+    private readonly files: TFile[],
+    private readonly currentInput: string,
+    private readonly previewFile: (file: TFile) => void,
+    private readonly chooseFile: (file: TFile) => void,
+    private readonly cancel: () => void,
+  ) {
+    super(app);
+    this.setPlaceholder("Type to search vault images");
+  }
+
+  onOpen(): void {
+    super.onOpen();
+    this.observer = new MutationObserver(() => {
+      this.updatePreviewFromActiveSuggestion();
+    });
+    this.observer.observe(this.resultContainerEl, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    window.requestAnimationFrame(() => {
+      this.updatePreviewFromActiveSuggestion();
+    });
+  }
+
+  onClose(): void {
+    this.observer?.disconnect();
+    this.observer = null;
+    super.onClose();
+
+    if (!this.didConfirm) {
+      this.cancel();
+    }
+  }
+
+  getSuggestions(query: string): TFile[] {
+    const normalizedQuery = query.trim().toLowerCase();
+    this.suggestions =
+      normalizedQuery.length === 0
+        ? this.files
+        : this.files.filter((file) => {
+            return (
+              file.path.toLowerCase().includes(normalizedQuery) ||
+              file.basename.toLowerCase().includes(normalizedQuery)
+            );
+          });
+
+    return this.suggestions;
+  }
+
+  renderSuggestion(file: TFile, el: HTMLElement): void {
+    const titleEl = el.createDiv({
+      cls: "bases-kanban-background-image-suggestion-path",
+    });
+    if (file.path === this.currentInput) {
+      const currentEl = titleEl.createSpan({ cls: "suggestion-flair" });
+      setIcon(currentEl, "check");
+      titleEl.appendText(" ");
+    }
+    titleEl.appendText(file.path);
+  }
+
+  onChooseSuggestion(file: TFile): void {
+    this.didConfirm = true;
+    this.lastPreviewPath = file.path;
+    this.chooseFile(file);
+  }
+
+  private updatePreviewFromActiveSuggestion(): void {
+    const selectedEl = this.resultContainerEl.querySelector(
+      ".suggestion-item.is-selected",
+    );
+    if (!(selectedEl instanceof HTMLElement)) {
+      return;
+    }
+
+    const allItems = Array.from(
+      this.resultContainerEl.querySelectorAll(".suggestion-item"),
+    );
+    const selectedIndex = allItems.indexOf(selectedEl);
+    if (selectedIndex < 0 || selectedIndex >= this.suggestions.length) {
+      return;
+    }
+
+    const selectedFile = this.suggestions[selectedIndex];
+    if (selectedFile.path === this.lastPreviewPath) {
+      return;
+    }
+
+    this.lastPreviewPath = selectedFile.path;
+    this.previewFile(selectedFile);
+  }
+}
+
+function isBackgroundImageFile(file: TFile): boolean {
+  return BACKGROUND_IMAGE_FILE_EXTENSIONS.has(file.extension.toLowerCase());
+}
+
 export class KanbanView extends BasesView {
   type = "cumban";
   private readonly rootEl: HTMLElement;
@@ -176,6 +367,14 @@ export class KanbanView extends BasesView {
 
   onDataUpdated(): void {
     this.render();
+  }
+
+  requestAddColumn(): void {
+    this.promptAndAddPinnedEmptyColumn();
+  }
+
+  isRenderedWithin(containerEl: HTMLElement): boolean {
+    return containerEl.contains(this.rootEl);
   }
 
   private render(): void {
@@ -460,6 +659,138 @@ export class KanbanView extends BasesView {
       text: this.plugin.settings.placeholderText,
       cls: "bases-kanban-placeholder",
     });
+  }
+
+  openBackgroundImagePicker(): void {
+    const currentInput = this.getBackgroundImageInput();
+    const modal = new BackgroundImageSourceSuggestModal(
+      this.app as App,
+      currentInput,
+      () => this.openLocalBackgroundImagePicker(),
+      () => {
+        void this.openRemoteBackgroundImagePicker();
+      },
+    );
+    modal.open();
+  }
+
+  private openLocalBackgroundImagePicker(): void {
+    const previousInput = this.getBackgroundImageInput();
+    const imageFiles = this.app.vault
+      .getFiles()
+      .filter((file) => isBackgroundImageFile(file))
+      .sort((left, right) => left.path.localeCompare(right.path));
+
+    if (imageFiles.length === 0) {
+      new Notice("No image files found in the vault.");
+      return;
+    }
+
+    const modal = new LocalBackgroundImageSuggestModal(
+      this.app as App,
+      imageFiles,
+      previousInput,
+      (file) => {
+        this.setBackgroundImageInput(file.path);
+      },
+      (file) => {
+        this.setBackgroundImageInput(file.path);
+      },
+      () => {
+        this.setBackgroundImageInput(previousInput);
+      },
+    );
+    modal.open();
+  }
+
+  private async openRemoteBackgroundImagePicker(): Promise<void> {
+    const currentInput = this.getBackgroundImageInput();
+    const currentValue = /^https?:\/\//i.test(currentInput.trim()) ? currentInput : "";
+    const nextValue = await this.openBackgroundImageUrlModal(currentValue);
+    if (nextValue === null) {
+      return;
+    }
+    this.setBackgroundImageInput(nextValue);
+  }
+
+  private openBackgroundImageUrlModal(
+    currentValue: string,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const modal = new Modal(this.app as App);
+      let resolved = false;
+
+      const finish = (value: string | null): void => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        resolve(value);
+      };
+
+      modal.titleEl.setText("Set background image URL");
+
+      const inputEl = modal.contentEl.createEl("input", {
+        type: "text",
+        value: currentValue,
+        placeholder: "https://example.com/image.png",
+      });
+      inputEl.style.width = "100%";
+      inputEl.style.marginBottom = "12px";
+
+      const buttonContainer = modal.contentEl.createDiv({
+        cls: "modal-button-container",
+      });
+
+      const cancelButton = buttonContainer.createEl("button", {
+        text: this.plugin.settings.cancelButtonText,
+        cls: "mod-secondary",
+      });
+      cancelButton.addEventListener("click", () => {
+        modal.close();
+      });
+
+      const saveButton = buttonContainer.createEl("button", {
+        text: "Save",
+        cls: "mod-cta",
+      });
+
+      const submit = (): void => {
+        finish(inputEl.value.trim());
+        modal.close();
+      };
+
+      saveButton.addEventListener("click", submit);
+      inputEl.addEventListener("keydown", (evt) => {
+        if (evt.key !== "Enter") {
+          return;
+        }
+        evt.preventDefault();
+        submit();
+      });
+
+      modal.onOpen = () => {
+        inputEl.focus();
+        inputEl.select();
+      };
+
+      modal.onClose = () => {
+        modal.contentEl.empty();
+        finish(null);
+      };
+
+      modal.open();
+    });
+  }
+
+  private setBackgroundImageInput(input: string): void {
+    this.config?.set(BACKGROUND_IMAGE_OPTION_KEY, input);
+    this.applyBackgroundStyles();
+  }
+
+  private getBackgroundImageInput(): string {
+    const value = this.config?.get(BACKGROUND_IMAGE_OPTION_KEY);
+    return typeof value === "string" ? value : "";
   }
 
   private applyBackgroundStyles(): void {

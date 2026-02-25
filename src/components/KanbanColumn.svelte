@@ -10,6 +10,7 @@
     } from "../kanban-view/board-context";
     import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
     import type { KanbanContext } from "../kanban-view/context";
+    import { flip } from "svelte/animate";
 
     type Props = {
         columnKey: string;
@@ -416,7 +417,7 @@
                             stroke-linecap="round"
                             stroke-linejoin="round"
                             class="svg-icon lucide-pencil"
-                        ><path
+                            ><path
                                 d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
                             ></path><path d="m15 5 4 4"></path></svg
                         >
@@ -517,16 +518,18 @@
         {#each entries as entry, i (entry.file.path)}
             {@const filePath = entry.file.path}
             {@const cardIndex = startCardIndex + i}
-            <KanbanCard
-                {entry}
-                {columnKey}
-                {groupKey}
-                {cardIndex}
-                onDragStart={onStartCardDrag}
-                onDragEnd={onEndCardDrag}
-                onSetDropTarget={onSetCardDropTarget}
-                onDrop={onCardDrop}
-            />
+            <div animate:flip={{ duration: 100 }}>
+                <KanbanCard
+                    {entry}
+                    {columnKey}
+                    {groupKey}
+                    {cardIndex}
+                    onDragStart={onStartCardDrag}
+                    onDragEnd={onEndCardDrag}
+                    onSetDropTarget={onSetCardDropTarget}
+                    onDrop={onCardDrop}
+                />
+            </div>
         {/each}
     </div>
 </div>

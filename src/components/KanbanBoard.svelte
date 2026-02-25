@@ -15,6 +15,7 @@
     } from "../kanban-view/board-context";
     import { createKanbanDragState } from "../kanban-view/drag-state";
     import { getColumnKey } from "../kanban-view/utils";
+    import { flip } from "svelte/animate";
 
     type Props = {
         groups: Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>;
@@ -174,7 +175,12 @@
         groupKey: unknown,
         placement: "before" | "after",
     ): void {
-        callbacks.card.drop($cardSourcePathStore, filePath, groupKey, placement);
+        callbacks.card.drop(
+            $cardSourcePathStore,
+            filePath,
+            groupKey,
+            placement,
+        );
     }
 
     const startCardIndexes = $derived.by(() => {
@@ -244,22 +250,24 @@
         {@const startIndex = startCardIndexes[idx] ?? 0}
         {@const groupEntries = entries}
         {@const isPinned = pinnedColumns.has(columnKey)}
-        <KanbanColumn
-            {columnKey}
-            {groupKey}
-            entries={groupEntries}
-            startCardIndex={startIndex}
-            initialScrollTop={columnScrollByKey[columnKey] ?? 0}
-            {isPinned}
-            onStartColumnDrag={handleStartColumnDrag}
-            onEndColumnDrag={handleEndColumnDrag}
-            onSetColumnDropTarget={handleSetColumnDropTarget}
-            onColumnDrop={handleColumnDrop}
-            onStartCardDrag={handleStartCardDrag}
-            onEndCardDrag={handleEndCardDrag}
-            onSetCardDropTarget={handleSetCardDropTarget}
-            onCardDrop={handleCardDrop}
-        />
+        <div animate:flip={{ duration: 100 }}>
+            <KanbanColumn
+                {columnKey}
+                {groupKey}
+                entries={groupEntries}
+                startCardIndex={startIndex}
+                initialScrollTop={columnScrollByKey[columnKey] ?? 0}
+                {isPinned}
+                onStartColumnDrag={handleStartColumnDrag}
+                onEndColumnDrag={handleEndColumnDrag}
+                onSetColumnDropTarget={handleSetColumnDropTarget}
+                onColumnDrop={handleColumnDrop}
+                onStartCardDrag={handleStartCardDrag}
+                onEndCardDrag={handleEndCardDrag}
+                onSetCardDropTarget={handleSetCardDropTarget}
+                onCardDrop={handleCardDrop}
+            />
+        </div>
     {/each}
     <button
         type="button"
