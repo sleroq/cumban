@@ -8,7 +8,7 @@
 - Automatically migrate old Kanban boards to Bases with the command
 - Custom backgrounds with brightness/blur controls
 - Integration with [Pretty Properties](https://github.com/anareaty/pretty-properties) for user-defined tag colors
-- Tag styling with consistent colors based on tag name
+- Rename columns and create new
 - Rendering of any selected properties
 - Multi-select cards (Shift/Cmd/Ctrl + click) and batch move between the columns, reorder or trash
 - Group by any property to organize cards (status, priority, tags, etc.)
@@ -19,8 +19,10 @@
 
 - Card covers
 - Card blockers
-- Creating new columns
-- Navigation with HJKL
+- Navigation between cards with HJKL
+- Commands for moving the cards around
+- Click-on-tag filter (maybe?)
+- Search (maybe?)
 - Horizontal groups (maybe?)
 - Multi-card editing of properties (maybe?)
 
@@ -45,6 +47,11 @@ Until this plugin is available in the official plugins menu it can be installed 
    - Open Obsidian Settings
    - Go to "Community Plugins"
    - Enable "Bases Kanban"
+
+## Migration from non-bases Kanban
+
+1. Open your target kanban board
+2. Open command palette and select "Bases Kanban: Migrate legacy Kanban board to Bases"
 
 ## Privacy and network usage
 
