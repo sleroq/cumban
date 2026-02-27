@@ -764,6 +764,10 @@
         callbacks.card.linkClick(evt, filePath);
     }
 
+    function handleLinkHover(evt: MouseEvent): void {
+        callbacks.card.linkHover(evt, filePath);
+    }
+
     function handleTitleContextMenu(evt: MouseEvent): void {
         callbacks.card.contextMenu(evt, entry);
     }
@@ -838,6 +842,10 @@
         evt.preventDefault();
         evt.stopPropagation();
         callbacks.card.linkClick(evt, target);
+    }
+
+    function handlePropertyLinkHover(evt: MouseEvent, target: string): void {
+        callbacks.card.linkHover(evt, target);
     }
 
     type EditableLinkInfo = {
@@ -1044,6 +1052,7 @@
                 class="internal-link"
                 style:color={settings.cardTitleColor}
                 onclick={handleLinkClick}
+                onmouseenter={handleLinkHover}
                 oncontextmenu={handleTitleContextMenu}
             >
                 {title}
@@ -1403,6 +1412,11 @@
                                             )}
                                             onclick={(evt: MouseEvent) =>
                                                 handlePropertyLinkClick(
+                                                    evt,
+                                                    link.target,
+                                                )}
+                                            onmouseenter={(evt: MouseEvent) =>
+                                                handlePropertyLinkHover(
                                                     evt,
                                                     link.target,
                                                 )}

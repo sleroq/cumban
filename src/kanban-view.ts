@@ -497,6 +497,8 @@ export class KanbanView extends BasesView {
           this.showCardContextMenu(evt, entry.file),
         linkClick: (evt: MouseEvent, target: string) =>
           this.handleCardLinkClick(evt, target),
+        linkHover: (evt: MouseEvent, target: string) =>
+          this.handleCardLinkHover(evt, target),
         rename: (filePath: string, nextTitle: string) =>
           this.renameCard(filePath, nextTitle),
         getPropertyEditorMode: (propertyId: BasesPropertyId) =>
@@ -812,6 +814,22 @@ export class KanbanView extends BasesView {
       "",
       isOpenToRight ? "split" : isNewTab,
     );
+  }
+
+  private handleCardLinkHover(evt: MouseEvent, target: string): void {
+    const hoverEl = evt.currentTarget;
+    if (!(hoverEl instanceof HTMLElement)) {
+      return;
+    }
+
+    this.app.workspace.trigger("hover-link", {
+      event: evt,
+      source: this.type,
+      hoverParent: this,
+      targetEl: hoverEl,
+      linktext: target,
+      sourcePath: target,
+    });
   }
 
   private async renameCard(filePath: string, nextTitle: string): Promise<void> {

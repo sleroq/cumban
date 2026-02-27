@@ -26,6 +26,7 @@ export type KanbanCardCallbacks = {
   ) => void;
   contextMenu: (evt: MouseEvent, entry: BasesEntry) => void;
   linkClick: (evt: MouseEvent, target: string) => void;
+  linkHover: (evt: MouseEvent, target: string) => void;
   rename: (filePath: string, nextTitle: string) => Promise<void>;
   getPropertyEditorMode: (
     propertyId: BasesPropertyId,
