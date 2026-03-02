@@ -11,11 +11,7 @@ import {
   PINNED_COLUMNS_OPTION_KEY,
 } from "./constants";
 
-export function getKanbanViewOptions(columnBlurEnabled: boolean) {
-  const columnBlurDisplayName = columnBlurEnabled
-    ? "Column blur"
-    : "Column blur (enable in the settings)";
-
+export function getKanbanViewOptions() {
   return [
     {
       key: COLUMN_ORDER_OPTION_KEY,
@@ -85,11 +81,11 @@ export function getKanbanViewOptions(columnBlurEnabled: boolean) {
     },
     {
       key: COLUMN_BLUR_OPTION_KEY,
-      displayName: columnBlurDisplayName,
+      displayName: "Column blur (macOS translucent window may ghost)",
       type: "slider" as const,
-      default: columnBlurEnabled ? 8 : 0,
+      default: 0,
       min: 0,
-      max: columnBlurEnabled ? 20 : 0,
+      max: 20,
       step: 1,
     },
     {

@@ -84,12 +84,24 @@ export default class BasesKanbanPlugin extends Plugin {
       icon: "lucide-kanban",
       factory: (controller, containerEl) =>
         new KanbanView(controller, containerEl, this),
-      options: () => KanbanView.getViewOptions(this.settings.enableColumnBlur),
+      options: () => KanbanView.getViewOptions(),
     });
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loadedSettings = (await this.loadData()) as
+      | (Partial<BasesKanbanSettings> & { enableColumnBlur?: boolean })
+      | null;
+
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
+
+    if (
+      loadedSettings?.enableColumnBlur === false &&
+      loadedSettings.columnBlur === undefined
+    ) {
+      this.settings.columnBlur = 0;
+    }
+
     this.updateCssVariables();
   }
 
