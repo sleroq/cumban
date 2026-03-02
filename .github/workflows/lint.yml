@@ -24,4 +24,6 @@ jobs:
       - run: bun run test
       - run: bun run build
       - run: bun run lint
+      - run: bun run lint:obsidian:install
+      - run: bun run lint:obsidian
       - run: bun run svelte-check

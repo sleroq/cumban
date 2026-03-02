@@ -8,6 +8,8 @@
     "typecheck": "tsc -noEmit -skipLibCheck",
     "build": "bun run typecheck && bun esbuild.config.mjs production",
     "lint": "eslint ./src",
+    "lint:obsidian:install": "bun install --cwd tools/obsidian-lint",
+    "lint:obsidian": "node tools/obsidian-lint/node_modules/eslint/bin/eslint.js src package.json --config tools/obsidian-lint/eslint.config.mjs",
     "svelte-check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test tests",
     "trace:export": "node scripts/trace-export.mjs",
