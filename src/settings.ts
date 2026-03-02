@@ -43,6 +43,7 @@ export interface BasesKanbanSettings {
   backgroundBlur: number;
   columnTransparency: number;
   columnBlur: number;
+  enableColumnBlur: boolean;
 
   // Migration
   migrationGroupProperty: string;
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   backgroundBlur: 0,
   columnTransparency: 100,
   columnBlur: 8,
+  enableColumnBlur: false,
 
   // Migration
   migrationGroupProperty: "status",
@@ -583,18 +585,44 @@ export class KanbanSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Enable column blur")
+      .setDesc(
+        "Turns on column backdrop blur globally. This can cause rendering artifacts on macOS when Obsidian translucent window is enabled.",
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableColumnBlur)
+          .onChange(async (value) => {
+            this.plugin.settings.enableColumnBlur = value;
+            await this.plugin.saveSettings();
+            this.display();
+          }),
+      );
+
+    const isColumnBlurEnabled = this.plugin.settings.enableColumnBlur;
+    const disabledReason = "Enable column blur to adjust this slider.";
+    const columnBlurDescription = isColumnBlurEnabled
+      ? "Blur amount for column backgrounds (0-20px)"
+      : "Blur amount for column backgrounds (0-20px). Enable column blur first.";
+
+    const columnBlurSetting = new Setting(containerEl)
       .setName("Column blur")
-      .setDesc("Blur amount for column backgrounds (0-20px)")
+      .setDesc(columnBlurDescription)
       .addSlider((slider) =>
         slider
           .setLimits(0, 20, 1)
           .setValue(this.plugin.settings.columnBlur)
           .setDynamicTooltip()
+          .setDisabled(!isColumnBlurEnabled)
           .onChange(async (value) => {
             this.plugin.settings.columnBlur = value;
             await this.plugin.saveSettings();
           }),
       );
+
+    if (!isColumnBlurEnabled) {
+      columnBlurSetting.settingEl.title = disabledReason;
+    }
 
     new Setting(containerEl).setName("Migration").setHeading();
 

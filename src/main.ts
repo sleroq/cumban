@@ -84,7 +84,7 @@ export default class BasesKanbanPlugin extends Plugin {
       icon: "lucide-kanban",
       factory: (controller, containerEl) =>
         new KanbanView(controller, containerEl, this),
-      options: () => KanbanView.getViewOptions(),
+      options: () => KanbanView.getViewOptions(this.settings.enableColumnBlur),
     });
   }
 

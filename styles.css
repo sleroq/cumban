@@ -53,8 +53,12 @@
 	overflow: hidden;
 	position: relative;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-	backdrop-filter: blur(var(--bases-kanban-column-blur, 8px));
+	backdrop-filter: none;
 	border: 1px solid var(--background-modifier-border);
+}
+
+.bases-kanban-container.bases-kanban-column-blur-enabled .bases-kanban-column {
+	backdrop-filter: blur(var(--bases-kanban-column-blur, 8px));
 }
 
 .bases-kanban-placeholder {

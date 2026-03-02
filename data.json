@@ -27,6 +27,7 @@
   "backgroundBlur": 0,
   "columnTransparency": 100,
   "columnBlur": 8,
+  "enableColumnBlur": false,
   "migrationGroupProperty": "status",
   "migrationQueryProperty": "legacyKanbanSource",
   "columnNameMaxLength": 40

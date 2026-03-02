@@ -887,6 +887,7 @@ export class KanbanView extends BasesView {
   }
 
   private applyBackgroundStyles(): void {
+    const columnBlurEnabled = this.plugin.settings.enableColumnBlur;
     const config = {
       imageInput: this.config?.get(BACKGROUND_IMAGE_OPTION_KEY),
       brightness:
@@ -900,12 +901,15 @@ export class KanbanView extends BasesView {
         (this.config?.get(COLUMN_TRANSPARENCY_OPTION_KEY) as
           | number
           | undefined) ?? this.plugin.settings.columnTransparency,
-      columnBlur:
+      columnBlur: columnBlurEnabled
+        ?
         (this.config?.get(COLUMN_BLUR_OPTION_KEY) as number | undefined) ??
-        this.plugin.settings.columnBlur,
+          this.plugin.settings.columnBlur
+        : 0,
     };
 
     const styles = resolveBackgroundStyles(this.app as App, config);
+    this.rootEl.classList.toggle("bases-kanban-column-blur-enabled", columnBlurEnabled);
 
     this.rootEl.style.setProperty(
       "--bases-kanban-column-transparency",
@@ -2292,7 +2296,7 @@ export class KanbanView extends BasesView {
     this.plugin.unregisterKanbanView(this);
   }
 
-  static getViewOptions() {
-    return getKanbanViewOptions();
+  static getViewOptions(columnBlurEnabled: boolean) {
+    return getKanbanViewOptions(columnBlurEnabled);
   }
 }
