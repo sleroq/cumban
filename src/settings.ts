@@ -4,10 +4,10 @@ import type BasesKanbanPlugin from "./main";
 export interface BasesKanbanSettings {
   // Display & Labels
   emptyColumnLabel: string;
-  placeholderText: string;
 
   // Behavior
   enableAnimations: boolean;
+  persistActiveViewAsDefault: boolean;
   scrollDebounceMs: number;
   trashShortcutKey: string;
   cardsPerBatch: number;
@@ -52,11 +52,10 @@ export interface BasesKanbanSettings {
 export const DEFAULT_SETTINGS: BasesKanbanSettings = {
   // Display & Labels
   emptyColumnLabel: "(No value)",
-  placeholderText:
-    'Set "Group by" in the sort menu to organize cards into columns.',
 
   // Behavior
   enableAnimations: true,
+  persistActiveViewAsDefault: true,
   scrollDebounceMs: 300,
   trashShortcutKey: "Backspace",
   cardsPerBatch: 100,
@@ -145,7 +144,10 @@ export class KanbanSettingTab extends PluginSettingTab {
       settingItems.forEach((item) => {
         const isHeading = item.classList.contains("setting-item-heading");
         if (isHeading) {
-          if (currentSection.heading !== null || currentSection.items.length > 0) {
+          if (
+            currentSection.heading !== null ||
+            currentSection.items.length > 0
+          ) {
             sections.push(currentSection);
           }
           currentSection = { heading: item, items: [] };
@@ -193,34 +195,44 @@ export class KanbanSettingTab extends PluginSettingTab {
       });
     };
 
-    new Setting(containerEl).setName("Display").setHeading();
+    new Setting(containerEl).setName("Appearance").setHeading();
 
     new Setting(containerEl)
-      .setName("Empty column label")
-      .setDesc("Text shown for columns with no value")
-      .addText((text) =>
-        text
-          .setPlaceholder("(no value)")
-          .setValue(this.plugin.settings.emptyColumnLabel)
+      .setName("Enable animations")
+      .setDesc("Enable flip animations when cards and columns are reordered")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableAnimations)
           .onChange(async (value) => {
-            this.plugin.settings.emptyColumnLabel =
-              value || DEFAULT_SETTINGS.emptyColumnLabel;
+            this.plugin.settings.enableAnimations = value;
             await this.plugin.saveSettings();
           }),
       );
 
     new Setting(containerEl)
-      .setName("Placeholder text")
-      .setDesc("Message shown when 'group by' is not configured")
-      .addText((text) =>
-        text
-          .setPlaceholder(
-            'Set "group by" in the sort menu to organize cards into columns.',
-          )
-          .setValue(this.plugin.settings.placeholderText)
+      .setName("Column width")
+      .setDesc("Width of each kanban column in pixels")
+      .addSlider((slider) =>
+        slider
+          .setLimits(200, 500, 10)
+          .setValue(this.plugin.settings.columnWidth)
+          .setDynamicTooltip()
           .onChange(async (value) => {
-            this.plugin.settings.placeholderText =
-              value || DEFAULT_SETTINGS.placeholderText;
+            this.plugin.settings.columnWidth = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Drop indicator width")
+      .setDesc("Width of the drop indicator line in pixels")
+      .addSlider((slider) =>
+        slider
+          .setLimits(1, 10, 1)
+          .setValue(this.plugin.settings.dropIndicatorWidth)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.dropIndicatorWidth = value;
             await this.plugin.saveSettings();
           }),
       );
@@ -337,7 +349,35 @@ export class KanbanSettingTab extends PluginSettingTab {
           }),
       );
 
+    new Setting(containerEl)
+      .setName("Empty column label")
+      .setDesc("Text shown for columns with no value")
+      .addText((text) =>
+        text
+          .setPlaceholder("(no value)")
+          .setValue(this.plugin.settings.emptyColumnLabel)
+          .onChange(async (value) => {
+            this.plugin.settings.emptyColumnLabel =
+              value || DEFAULT_SETTINGS.emptyColumnLabel;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     new Setting(containerEl).setName("Behavior").setHeading();
+
+    new Setting(containerEl)
+      .setName("Persist active view as default")
+      .setDesc(
+        "When enabled, opening a base restores the last active view by moving it to the first view entry.",
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.persistActiveViewAsDefault)
+          .onChange(async (value) => {
+            this.plugin.settings.persistActiveViewAsDefault = value;
+            await this.plugin.saveSettings();
+          }),
+      );
 
     new Setting(containerEl)
       .setName("Scroll debounce")
@@ -437,48 +477,6 @@ export class KanbanSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.cancelButtonText =
               value || DEFAULT_SETTINGS.cancelButtonText;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl).setName("Appearance").setHeading();
-
-    new Setting(containerEl)
-      .setName("Enable animations")
-      .setDesc("Enable flip animations when cards and columns are reordered")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.enableAnimations)
-          .onChange(async (value) => {
-            this.plugin.settings.enableAnimations = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Column width")
-      .setDesc("Width of each kanban column in pixels")
-      .addSlider((slider) =>
-        slider
-          .setLimits(200, 500, 10)
-          .setValue(this.plugin.settings.columnWidth)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.columnWidth = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Drop indicator width")
-      .setDesc("Width of the drop indicator line in pixels")
-      .addSlider((slider) =>
-        slider
-          .setLimits(1, 10, 1)
-          .setValue(this.plugin.settings.dropIndicatorWidth)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.dropIndicatorWidth = value;
             await this.plugin.saveSettings();
           }),
       );

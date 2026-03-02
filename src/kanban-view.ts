@@ -32,6 +32,7 @@ import {
   COLUMN_BLUR_OPTION_KEY,
   COLUMN_ORDER_OPTION_KEY,
   COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
+  KANBAN_VIEW_ID_OPTION_KEY,
   COLUMN_TRANSPARENCY_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
   NO_VALUE_COLUMN_KEY,
@@ -67,6 +68,7 @@ import {
   serializePinnedColumns,
 } from "./kanban-view/state-persistence";
 import { resolveBackgroundStyles } from "./kanban-view/background-manager";
+import { persistCurrentBaseViewAsDefault } from "./kanban-view/base-view-order";
 
 import {
   type RenderedGroup,
@@ -121,6 +123,10 @@ const BACKGROUND_IMAGE_FILE_EXTENSIONS = new Set<string>([
   "svg",
   "webp",
 ]);
+
+const GROUP_BY_PLACEHOLDER_TEXT =
+  'Set "Group by" in the sort menu to organize cards into columns.';
+const NO_RESULTS_PLACEHOLDER_TEXT = "No results";
 
 class BackgroundImageSourceSuggestModal extends SuggestModal<BackgroundImageSourceOption> {
   private readonly options: Record<BackgroundImageSourceOption, string> = {
@@ -316,6 +322,9 @@ export class KanbanView extends BasesView {
   private columnsRightToLeft = false;
   private currentRenderedGroups: RenderedGroup[] = [];
   private incrementalLoadRafId: number | null = null;
+  private isPersistingActiveView = false;
+  private hasPendingDataUpdate = false;
+  private isClosed = false;
 
   constructor(
     controller: QueryController,
@@ -338,7 +347,17 @@ export class KanbanView extends BasesView {
   }
 
   onDataUpdated(): void {
-    this.render();
+    if (this.isClosed) {
+      return;
+    }
+
+    if (this.isPersistingActiveView) {
+      this.hasPendingDataUpdate = true;
+      return;
+    }
+
+    this.isPersistingActiveView = true;
+    void this.handleDataUpdated();
   }
 
   requestAddColumn(): void {
@@ -347,6 +366,94 @@ export class KanbanView extends BasesView {
 
   isRenderedWithin(containerEl: HTMLElement): boolean {
     return containerEl.contains(this.rootEl);
+  }
+
+  private async handleDataUpdated(): Promise<void> {
+    try {
+      await this.persistActiveViewAsDefaultIfEnabled();
+    } finally {
+      this.isPersistingActiveView = false;
+
+      if (!this.isClosed) {
+        this.render();
+      }
+
+      if (this.hasPendingDataUpdate) {
+        this.hasPendingDataUpdate = false;
+        this.onDataUpdated();
+      }
+    }
+  }
+
+  private async persistActiveViewAsDefaultIfEnabled(): Promise<void> {
+    if (!this.plugin.settings.persistActiveViewAsDefault) {
+      return;
+    }
+
+    const viewId = this.ensureKanbanViewId();
+    const viewName = this.config?.name;
+    const baseFile = this.getCurrentBaseFile();
+    if (
+      viewId !== null &&
+      typeof viewName === "string" &&
+      viewName.length > 0 &&
+      baseFile instanceof TFile
+    ) {
+      try {
+        await persistCurrentBaseViewAsDefault({
+          app: this.app as App,
+          baseFile,
+          viewType: this.type,
+          viewName,
+          viewId,
+          viewIdOptionKey: KANBAN_VIEW_ID_OPTION_KEY,
+        });
+      } catch (error: unknown) {
+        logDebug("VIEW_RESTORE", "Failed to persist active view", {
+          message: error instanceof Error ? error.message : String(error),
+          baseFilePath: baseFile.path,
+          viewName,
+        });
+      }
+    }
+  }
+
+  private ensureKanbanViewId(): string | null {
+    const existingId = this.config?.get(KANBAN_VIEW_ID_OPTION_KEY);
+    if (typeof existingId === "string" && existingId.trim().length > 0) {
+      return existingId;
+    }
+
+    const nextId =
+      globalThis.crypto?.randomUUID?.() ??
+      `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    this.config?.set(KANBAN_VIEW_ID_OPTION_KEY, nextId);
+    return nextId;
+  }
+
+  private getCurrentBaseFile(): TFile | null {
+    let match: TFile | null = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (match !== null) {
+        return;
+      }
+
+      const leafContainer = (leaf.view as { containerEl?: unknown }).containerEl;
+      if (!(leafContainer instanceof HTMLElement)) {
+        return;
+      }
+
+      if (!this.isRenderedWithin(leafContainer)) {
+        return;
+      }
+
+      const file = (leaf.view as { file?: unknown }).file;
+      if (file instanceof TFile) {
+        match = file;
+      }
+    });
+
+    return match;
   }
 
   private render(): void {
@@ -359,6 +466,10 @@ export class KanbanView extends BasesView {
       pinnedColumns,
     );
     const groups = mergeGroupsByColumnKey(groupsWithPinned);
+    const totalEntries = groups.reduce(
+      (sum, group) => sum + group.entries.length,
+      0,
+    );
 
     const localCardOrderByColumn = this.getLocalCardOrderByColumn();
     logRenderEvent("Data prepared", {
@@ -371,13 +482,23 @@ export class KanbanView extends BasesView {
 
     this.applyBackgroundStyles();
 
+    if (totalEntries === 0) {
+      logRenderEvent("Rendering placeholder (no results)");
+      if (this.svelteApp !== null) {
+        this.unmountSvelteApp();
+      }
+      this.rootEl.empty();
+      this.renderPlaceholder(NO_RESULTS_PLACEHOLDER_TEXT);
+      return;
+    }
+
     if (!hasConfiguredGroupBy(groups)) {
       logRenderEvent("Rendering placeholder (no group by)");
       if (this.svelteApp !== null) {
         this.unmountSvelteApp();
       }
       this.rootEl.empty();
-      this.renderPlaceholder();
+      this.renderPlaceholder(GROUP_BY_PLACEHOLDER_TEXT);
       return;
     }
 
@@ -412,6 +533,7 @@ export class KanbanView extends BasesView {
 
     if (this.svelteApp === null) {
       logRenderEvent("Mounting Svelte app for first render");
+      this.rootEl.empty();
       const shellGroups: RenderedGroup[] = renderedGroups.map((rg) => ({
         group: rg.group,
         entries: [],
@@ -623,10 +745,10 @@ export class KanbanView extends BasesView {
     });
   }
 
-  private renderPlaceholder(): void {
+  private renderPlaceholder(text: string): void {
     this.applyBackgroundStyles();
     this.rootEl.createEl("p", {
-      text: this.plugin.settings.placeholderText,
+      text,
       cls: "bases-kanban-placeholder",
     });
   }
@@ -2160,6 +2282,7 @@ export class KanbanView extends BasesView {
   }
 
   onClose(): void {
+    this.isClosed = true;
     if (this.scrollSaveTimeout !== null) {
       window.clearTimeout(this.scrollSaveTimeout);
       this.scrollSaveTimeout = null;

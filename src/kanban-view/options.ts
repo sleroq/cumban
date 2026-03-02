@@ -6,6 +6,7 @@ import {
   COLUMN_ORDER_OPTION_KEY,
   COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
   COLUMN_TRANSPARENCY_OPTION_KEY,
+  KANBAN_VIEW_ID_OPTION_KEY,
   LOCAL_CARD_ORDER_OPTION_KEY,
   PINNED_COLUMNS_OPTION_KEY,
 } from "./constants";
@@ -34,6 +35,14 @@ export function getKanbanViewOptions() {
       type: "text" as const,
       default: "",
       placeholder: "Managed by pin button",
+      shouldHide: () => true,
+    },
+    {
+      key: KANBAN_VIEW_ID_OPTION_KEY,
+      displayName: "Kanban view ID",
+      type: "text" as const,
+      default: "",
+      placeholder: "Managed by Bases Kanban",
       shouldHide: () => true,
     },
     {

@@ -12,3 +12,4 @@ export const COLUMN_TRANSPARENCY_OPTION_KEY = "columnTransparency";
 export const COLUMN_BLUR_OPTION_KEY = "columnBlur";
 export const PINNED_COLUMNS_OPTION_KEY = "pinnedColumns";
 export const COLUMNS_RIGHT_TO_LEFT_OPTION_KEY = "columnsRightToLeft";
+export const KANBAN_VIEW_ID_OPTION_KEY = "kanbanViewId";

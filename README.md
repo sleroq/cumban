@@ -15,6 +15,7 @@
 - Group by any property to organize cards (status, priority, tags, etc.)
 - Pin columns so they stay visible even when there are no cards
 - Drag column headers to reorder columns
+- Rememeber last openned view
 
 ## Planned Features
 
@@ -23,7 +24,6 @@
 - Navigation between cards with HJKL
 - Commands for moving the cards around
 - Click-on-tag filter (maybe?)
-- Search (maybe?)
 - Horizontal groups (maybe?)
 - Multi-card editing of properties (maybe?)
 
