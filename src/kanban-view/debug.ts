@@ -65,7 +65,7 @@ export function logRenderEvent(
 ): void {
   if (!isDebugEnabled() || !shouldLogRender()) return;
   const timestamp = new Date().toISOString().split("T")[1]?.split(".")[0];
-  console.log(`[${timestamp}] [RENDER] ${event}`, details ?? "");
+  console.debug(`[${timestamp}] [RENDER] ${event}`, details ?? "");
 }
 
 export function logDragEvent(
@@ -74,7 +74,7 @@ export function logDragEvent(
 ): void {
   if (!isDebugEnabled() || !shouldLogDrag()) return;
   const timestamp = new Date().toISOString().split("T")[1]?.split(".")[0];
-  console.log(`[${timestamp}] [DRAG] ${event}`, details ?? "");
+  console.debug(`[${timestamp}] [DRAG] ${event}`, details ?? "");
 }
 
 export function logScrollEvent(
@@ -83,7 +83,7 @@ export function logScrollEvent(
 ): void {
   if (!isDebugEnabled() || !shouldLogScroll()) return;
   const timestamp = new Date().toISOString().split("T")[1]?.split(".")[0];
-  console.log(`[${timestamp}] [SCROLL] ${event}`, details ?? "");
+  console.debug(`[${timestamp}] [SCROLL] ${event}`, details ?? "");
 }
 
 export function logCacheEvent(
@@ -92,7 +92,7 @@ export function logCacheEvent(
 ): void {
   if (!isDebugEnabled() || !shouldLogCache()) return;
   const timestamp = new Date().toISOString().split("T")[1]?.split(".")[0];
-  console.log(`[${timestamp}] [CACHE] ${event}`, details ?? "");
+  console.debug(`[${timestamp}] [CACHE] ${event}`, details ?? "");
 }
 
 export function logDebug(
@@ -103,8 +103,8 @@ export function logDebug(
   if (!isDebugEnabled()) return;
   const timestamp = new Date().toISOString().split("T")[1]?.split(".")[0];
   if (data !== undefined) {
-    console.log(`[${timestamp}] [${category}] ${message}`, data);
+    console.debug(`[${timestamp}] [${category}] ${message}`, data);
   } else {
-    console.log(`[${timestamp}] [${category}] ${message}`);
+    console.debug(`[${timestamp}] [${category}] ${message}`);
   }
 }

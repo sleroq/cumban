@@ -10,6 +10,20 @@ const LEGACY_MARKER = "%% kanban:settings";
 const DEFAULT_QUERY_PROPERTY = "legacyKanbanSource";
 const DEFAULT_GROUP_PROPERTY = "status";
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRecordValue(record: unknown, key: string): unknown {
+  if (!isRecord(record)) {
+    return undefined;
+  }
+
+  return record[key];
+}
+
 function hasKanbanFrontmatter(file: TFile, plugin: BasesKanbanPlugin): boolean {
   const cache = plugin.app.metadataCache.getFileCache(file);
   const frontmatter = cache?.frontmatter;
@@ -17,7 +31,7 @@ function hasKanbanFrontmatter(file: TFile, plugin: BasesKanbanPlugin): boolean {
     return false;
   }
 
-  const value = frontmatter["kanban-plugin"];
+  const value = getRecordValue(frontmatter, "kanban-plugin");
   return typeof value === "string";
 }
 
@@ -97,7 +111,7 @@ function assertMigrationDoesNotExist(
       continue;
     }
 
-    const value = frontmatter[queryProperty];
+    const value = getRecordValue(frontmatter, queryProperty);
     if (typeof value === "string" && value === boardFile.path) {
       hasPreviouslyMigratedNotes = true;
       break;
@@ -184,7 +198,11 @@ async function upsertMigrationProperties(
   laneName: string,
   boardPath: string,
 ): Promise<void> {
-  await plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+  await plugin.app.fileManager.processFrontMatter(file, (frontmatter: unknown) => {
+    if (!isRecord(frontmatter)) {
+      return;
+    }
+
     frontmatter[groupProperty] = laneName;
     frontmatter[queryProperty] = boardPath;
   });

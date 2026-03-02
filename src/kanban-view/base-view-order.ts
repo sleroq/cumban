@@ -40,8 +40,9 @@ function reorderViewsWithCurrentFirst(
   if (!Array.isArray(viewsValue) || viewsValue.length === 0) {
     return null;
   }
+  const views: unknown[] = viewsValue;
 
-  const firstMatchById = viewsValue.findIndex((value) => {
+  const firstMatchById = views.findIndex((value) => {
     if (!isRecord(value)) {
       return false;
     }
@@ -51,7 +52,7 @@ function reorderViewsWithCurrentFirst(
   const targetIndex =
     firstMatchById >= 0
       ? firstMatchById
-      : viewsValue.findIndex((value) => {
+      : views.findIndex((value) => {
           if (!isRecord(value)) {
             return false;
           }
@@ -66,7 +67,7 @@ function reorderViewsWithCurrentFirst(
     return null;
   }
 
-  const targetView = viewsValue[targetIndex];
+  const targetView = views[targetIndex];
   if (!isRecord(targetView)) {
     return null;
   }
@@ -78,8 +79,8 @@ function reorderViewsWithCurrentFirst(
   }
 
   if (targetIndex !== 0) {
-    const [movedView] = viewsValue.splice(targetIndex, 1);
-    viewsValue.unshift(movedView);
+    const [movedView] = views.splice(targetIndex, 1);
+    views.unshift(movedView);
     changed = true;
   }
 

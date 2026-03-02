@@ -41,6 +41,10 @@ type UpdateCardPropertyCheckboxArgs = {
   checked: boolean;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export class KanbanMutationService {
   constructor(private readonly app: App) {}
 
@@ -93,7 +97,11 @@ export class KanbanMutationService {
 
       await this.app.fileManager.processFrontMatter(
         entry.file,
-        (frontmatter) => {
+        (frontmatter: unknown) => {
+          if (!isRecord(frontmatter)) {
+            return;
+          }
+
           const key = resolveFrontmatterKey(
             frontmatter,
             groupByProperty,
@@ -119,7 +127,11 @@ export class KanbanMutationService {
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
 
-    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+    await this.app.fileManager.processFrontMatter(file, (frontmatter: unknown) => {
+      if (!isRecord(frontmatter)) {
+        return;
+      }
+
       const key = resolveFrontmatterKey(frontmatter, propertyId, propertyKey);
       if (trimmedValues.length === 0) {
         delete frontmatter[key];
@@ -140,7 +152,11 @@ export class KanbanMutationService {
   ): Promise<void> {
     const { file, propertyId, propertyKey, checked } = args;
 
-    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+    await this.app.fileManager.processFrontMatter(file, (frontmatter: unknown) => {
+      if (!isRecord(frontmatter)) {
+        return;
+      }
+
       const key = resolveFrontmatterKey(frontmatter, propertyId, propertyKey);
       frontmatter[key] = checked;
     });

@@ -10,6 +10,16 @@ import {
   KanbanSettingTab,
 } from "./settings";
 
+type UnknownRecord = Record<string, unknown>;
+
+function getRecordValue(record: unknown, key: string): unknown {
+  if (typeof record !== "object" || record === null || Array.isArray(record)) {
+    return undefined;
+  }
+
+  return (record as UnknownRecord)[key];
+}
+
 export default class BasesKanbanPlugin extends Plugin {
   settings!: BasesKanbanSettings;
   private readonly kanbanViews = new Set<KanbanView>();
@@ -29,7 +39,7 @@ export default class BasesKanbanPlugin extends Plugin {
         }
 
         const cache = this.app.metadataCache.getFileCache(activeFile);
-        const legacyType = cache?.frontmatter?.["kanban-plugin"];
+        const legacyType = getRecordValue(cache?.frontmatter, "kanban-plugin");
         const likelyLegacy = typeof legacyType === "string";
         if (!likelyLegacy) {
           return false;

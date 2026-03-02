@@ -29,7 +29,6 @@
   "license": "WTFPL",
   "devDependencies": {
     "@types/node": "^25.2.3",
-    "builtin-modules": "^5.0.0",
     "esbuild": "^0.27.3",
     "esbuild-svelte": "^0.9.2",
     "eslint": "^10.0.0",

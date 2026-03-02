@@ -216,7 +216,7 @@ class LocalBackgroundImageSuggestModal extends SuggestModal<TFile> {
   }
 
   onOpen(): void {
-    super.onOpen();
+    void super.onOpen();
     this.observer = new MutationObserver(() => {
       this.updatePreviewFromActiveSuggestion();
     });
@@ -338,7 +338,7 @@ export class KanbanView extends BasesView {
     this.viewModel = createKanbanViewModel();
     this.viewModel.setSelectedPaths(this.selectionState.selectedPaths);
     this.rootEl = containerEl.createDiv({ cls: "bases-kanban-container" });
-    this.mutationService = new KanbanMutationService(this.app as App);
+    this.mutationService = new KanbanMutationService(this.app);
     this.plugin.registerKanbanView(this);
   }
 
@@ -401,7 +401,7 @@ export class KanbanView extends BasesView {
     ) {
       try {
         await persistCurrentBaseViewAsDefault({
-          app: this.app as App,
+          app: this.app,
           baseFile,
           viewType: this.type,
           viewName,
@@ -614,7 +614,7 @@ export class KanbanView extends BasesView {
           filePath: string | null,
           grpKey: unknown,
           placement: "before" | "after",
-        ) => this.handleCardDrop(sourcePath, filePath, grpKey, placement),
+        ) => void this.handleCardDrop(sourcePath, filePath, grpKey, placement),
         contextMenu: (evt: MouseEvent, entry: BasesEntry) =>
           this.showCardContextMenu(evt, entry.file),
         linkClick: (evt: MouseEvent, target: string) =>
@@ -673,7 +673,7 @@ export class KanbanView extends BasesView {
     this.svelteApp = mount(KanbanRoot, {
       target: this.rootEl,
       props: {
-        app: this.app as App,
+        app: this.app,
         selectedPathsStore: this.viewModel.selectedPathsStore,
         initialBoardScrollLeft: initialBoardScroll.left,
         initialBoardScrollTop: initialBoardScroll.top,
@@ -756,7 +756,7 @@ export class KanbanView extends BasesView {
   openBackgroundImagePicker(): void {
     const currentInput = this.getBackgroundImageInput();
     const modal = new BackgroundImageSourceSuggestModal(
-      this.app as App,
+      this.app,
       currentInput,
       () => this.openLocalBackgroundImagePicker(),
       () => {
@@ -779,7 +779,7 @@ export class KanbanView extends BasesView {
     }
 
     const modal = new LocalBackgroundImageSuggestModal(
-      this.app as App,
+      this.app,
       imageFiles,
       previousInput,
       (file) => {
@@ -811,7 +811,7 @@ export class KanbanView extends BasesView {
     currentValue: string,
   ): Promise<string | null> {
     return new Promise((resolve) => {
-      const modal = new Modal(this.app as App);
+      const modal = new Modal(this.app);
       let resolved = false;
 
       const finish = (value: string | null): void => {
@@ -905,7 +905,7 @@ export class KanbanView extends BasesView {
         this.plugin.settings.columnBlur,
     };
 
-    const styles = resolveBackgroundStyles(this.app as App, config);
+    const styles = resolveBackgroundStyles(this.app, config);
     this.rootEl.classList.toggle(
       "bases-kanban-column-blur-enabled",
       styles.columnBlurValue > 0,
@@ -1210,7 +1210,11 @@ export class KanbanView extends BasesView {
 
     if (Array.isArray(value)) {
       for (const part of value) {
-        const text = String(part).trim();
+        const text = this.toSuggestionText(part);
+        if (text === null) {
+          continue;
+        }
+
         if (text.length > 0) {
           suggestions.add(text);
         }
@@ -1218,7 +1222,11 @@ export class KanbanView extends BasesView {
       return;
     }
 
-    const text = String(value).trim();
+    const text = this.toSuggestionText(value);
+    if (text === null) {
+      return;
+    }
+
     if (text.length === 0) {
       return;
     }
@@ -1235,6 +1243,22 @@ export class KanbanView extends BasesView {
     for (const part of parts) {
       suggestions.add(part);
     }
+  }
+
+  private toSuggestionText(value: unknown): string | null {
+    if (typeof value === "string") {
+      return value.trim();
+    }
+
+    if (
+      typeof value === "number" ||
+      typeof value === "boolean" ||
+      typeof value === "bigint"
+    ) {
+      return String(value).trim();
+    }
+
+    return null;
   }
 
   private async updateCardPropertyValues(
@@ -1299,7 +1323,7 @@ export class KanbanView extends BasesView {
 
     if (files.length > 1) {
       const confirmed = await new Promise<boolean>((resolve) => {
-        const modal = new Modal(this.app as App);
+        const modal = new Modal(this.app);
         modal.titleEl.setText(`Move ${files.length} files to trash?`);
         modal.contentEl.createEl("p", {
           text: `This will move ${files.length} files to the trash. This action can be undone from the system trash.`,
@@ -1889,7 +1913,7 @@ export class KanbanView extends BasesView {
     cardCount: number,
   ): Promise<boolean> {
     return new Promise((resolve) => {
-      const modal = new Modal(this.app as App);
+      const modal = new Modal(this.app);
       let resolved = false;
 
       const finish = (value: boolean): void => {
@@ -1953,7 +1977,7 @@ export class KanbanView extends BasesView {
     defaultColumnName: string,
   ): Promise<string | null> {
     return new Promise((resolve) => {
-      const modal = new Modal(this.app as App);
+      const modal = new Modal(this.app);
       let resolved = false;
 
       const finish = (value: string | null): void => {
@@ -2241,8 +2265,8 @@ export class KanbanView extends BasesView {
       let anyAdded = false;
       for (let i = 0; i < numColumns; i++) {
         const before = revealed[i];
-        revealed[i] = Math.min(revealed[i]! + perColumnBatch, totals[i]!);
-        if (revealed[i]! > before!) {
+        revealed[i] = Math.min(revealed[i] + perColumnBatch, totals[i]);
+        if (revealed[i] > before) {
           anyAdded = true;
         }
       }
@@ -2263,7 +2287,7 @@ export class KanbanView extends BasesView {
         selectedProperties,
       });
 
-      const allDone = revealed.every((r, i) => r >= totals[i]!);
+      const allDone = revealed.every((r, i) => r >= totals[i]);
       if (!allDone) {
         this.incrementalLoadRafId = requestAnimationFrame(loadNextBatch);
       } else {
@@ -2281,7 +2305,7 @@ export class KanbanView extends BasesView {
     if (this.svelteApp === null) {
       return;
     }
-    unmount(this.svelteApp);
+    void unmount(this.svelteApp);
     this.svelteApp = null;
   }
 

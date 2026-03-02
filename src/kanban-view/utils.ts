@@ -162,6 +162,24 @@ function splitTopLevelCommaSeparated(value: string): string[] {
   return parts;
 }
 
+function toPropertyValueText(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    const trimmed = String(value).trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  return null;
+}
+
 export function getPropertyValues(value: unknown): string[] | null {
   if (value === null || value === undefined || value instanceof NullValue) {
     return null;
@@ -169,16 +187,13 @@ export function getPropertyValues(value: unknown): string[] | null {
 
   if (Array.isArray(value)) {
     const values = value
-      .map((v) => {
-        const str = String(v).trim();
-        return str.length > 0 ? str : null;
-      })
+      .map((v) => toPropertyValueText(v))
       .filter((v): v is string => v !== null);
     return values.length > 0 ? values : null;
   }
 
-  const stringValue = String(value).trim();
-  if (stringValue.length === 0) {
+  const stringValue = toPropertyValueText(value);
+  if (stringValue === null) {
     return null;
   }
 

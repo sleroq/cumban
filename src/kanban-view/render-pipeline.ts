@@ -18,13 +18,12 @@ export function mergeGroupsByColumnKey(
     if (existing === undefined) {
       mergedByColumnKey.set(columnKey, {
         key: group.key,
-        hasKey: group.hasKey,
+        hasKey: group.hasKey.bind(group),
         entries: [...group.entries],
       });
       continue;
     }
 
-    existing.hasKey = existing.hasKey || group.hasKey;
     existing.entries.push(...group.entries);
   }
 
