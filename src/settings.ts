@@ -110,6 +110,89 @@ export class KanbanSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    const searchSetting = new Setting(containerEl)
+      .setName("Search settings")
+      .setDesc("Filter settings by name and description")
+      .addSearch((search) => {
+        search.onChange((value) => {
+          applySearchFilter(value);
+        });
+        return search.setPlaceholder("Type to filter settings");
+      });
+
+    const applySearchFilter = (query: string): void => {
+      const hiddenClass = "bases-kanban-settings-hidden";
+      const normalizedQuery = query.trim().toLowerCase();
+      const settingItems = Array.from(
+        containerEl.querySelectorAll<HTMLElement>(".setting-item"),
+      ).filter((item) => item !== searchSetting.settingEl);
+
+      if (normalizedQuery.length === 0) {
+        settingItems.forEach((item) => {
+          item.classList.remove(hiddenClass);
+        });
+        return;
+      }
+
+      type SettingsSection = {
+        heading: HTMLElement | null;
+        items: HTMLElement[];
+      };
+
+      const sections: SettingsSection[] = [];
+      let currentSection: SettingsSection = { heading: null, items: [] };
+
+      settingItems.forEach((item) => {
+        const isHeading = item.classList.contains("setting-item-heading");
+        if (isHeading) {
+          if (currentSection.heading !== null || currentSection.items.length > 0) {
+            sections.push(currentSection);
+          }
+          currentSection = { heading: item, items: [] };
+          return;
+        }
+
+        currentSection.items.push(item);
+      });
+
+      if (currentSection.heading !== null || currentSection.items.length > 0) {
+        sections.push(currentSection);
+      }
+
+      const getSearchText = (item: HTMLElement): string => {
+        const nameText = item
+          .querySelector<HTMLElement>(".setting-item-name")
+          ?.textContent?.toLowerCase();
+        const descText = item
+          .querySelector<HTMLElement>(".setting-item-description")
+          ?.textContent?.toLowerCase();
+        return `${nameText ?? ""} ${descText ?? ""}`;
+      };
+
+      sections.forEach((section) => {
+        const headingMatches =
+          section.heading !== null &&
+          getSearchText(section.heading).includes(normalizedQuery);
+
+        let visibleItems = 0;
+        section.items.forEach((item) => {
+          const itemMatches =
+            headingMatches || getSearchText(item).includes(normalizedQuery);
+          item.classList.toggle(hiddenClass, !itemMatches);
+          if (itemMatches) {
+            visibleItems += 1;
+          }
+        });
+
+        if (section.heading !== null) {
+          section.heading.classList.toggle(
+            hiddenClass,
+            !(headingMatches || visibleItems > 0),
+          );
+        }
+      });
+    };
+
     new Setting(containerEl).setName("Display").setHeading();
 
     new Setting(containerEl)

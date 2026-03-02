@@ -510,3 +510,7 @@
 	color: var(--text-muted);
 	pointer-events: none;
 }
+
+.bases-kanban-settings-hidden {
+	display: none;
+}
