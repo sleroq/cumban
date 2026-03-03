@@ -23,6 +23,14 @@
 - Card blockers
 - Navigation between cards with HJKL
 - Commands for moving the cards around
+- Reorder properties
+- Per-view properties visibility settings
+- Drag & drop on mobile
+- Convert checklist items into cards
+- Color cards based on property (maybe)
+- Card icons (maybe?)
+- [Fizzy](https://www.fizzy.do/)-like board view
+- Convert selected cards into Markdown checklist (maybe?)
 - Click-on-tag filter (maybe?)
 - Horizontal groups (maybe?)
 - Multi-card editing of properties (maybe?)
