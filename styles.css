@@ -82,6 +82,43 @@
 	padding: var(--size-4-3);
 }
 
+.bases-kanban-board-shell {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	flex-direction: column;
+}
+
+.bases-kanban-active-filter {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	padding: var(--size-2-2) var(--size-4-3) 0 var(--size-4-3);
+	position: relative;
+	z-index: 1;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.bases-kanban-active-filter .bases-kanban-property-tag {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+}
+
+.bases-kanban-active-filter-clear {
+	border: none;
+	background: transparent;
+	color: var(--interactive-accent);
+	cursor: pointer;
+	padding: 0;
+	font-size: inherit;
+}
+
+.bases-kanban-active-filter-clear:hover {
+	text-decoration: underline;
+}
+
 .bases-kanban-add-column-button {
 	flex: 0 0 auto;
 	align-self: flex-start;
@@ -336,8 +373,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
+	width: 22px;
+	height: 22px;
 	padding: 2px;
 	margin-left: 2px;
 	box-sizing: border-box;
@@ -476,7 +513,6 @@
 	font-weight: var(--tag-weight, 500);
 	text-decoration: var(--tag-decoration, none);
 	margin-right: 3px;
-	margin-bottom: 2px;
 }
 
 .bases-kanban-property-tag:hover {
@@ -485,6 +521,7 @@
 	text-decoration: var(--tag-decoration-hover, var(--tag-decoration, none));
 	border-color: var(--tag-border-color-hover, var(--tag-border-color, transparent));
 }
+
 
 .bases-kanban-trash-confirm-button {
 	background-color: var(--background-modifier-error);

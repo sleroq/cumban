@@ -1,6 +1,10 @@
-import type { BasesEntry, BasesEntryGroup } from "obsidian";
+import type { BasesEntry, BasesEntryGroup, BasesPropertyId } from "obsidian";
 
-import { getColumnKey } from "./utils";
+import {
+  getColumnKey,
+  getEntryTagValues,
+  normalizeTagFilterValue,
+} from "./utils";
 
 export type RenderedGroup = {
   group: BasesEntryGroup;
@@ -106,5 +110,68 @@ export function buildRenderedGroups(
       group.entries,
       localCardOrderByColumn,
     ),
+  }));
+}
+
+type TagFilterParams = {
+  activeTagFilters: string[];
+  selectedProperties: BasesPropertyId[];
+  groupByProperty: BasesPropertyId | null;
+  tagPropertySuffix: string;
+};
+
+function entryMatchesTagFilter(
+  entry: BasesEntry,
+  normalizedActiveTagFilters: string[],
+  tagPropertyIds: BasesPropertyId[],
+): boolean {
+  const tags = getEntryTagValues(entry, tagPropertyIds);
+  const normalizedEntryTags = new Set<string>(
+    tags.map((tag) => normalizeTagFilterValue(tag)),
+  );
+
+  return normalizedActiveTagFilters.every((tagFilter) => {
+    return normalizedEntryTags.has(tagFilter);
+  });
+}
+
+export function filterRenderedGroupsByTag(
+  groups: RenderedGroup[],
+  {
+    activeTagFilters,
+    selectedProperties,
+    groupByProperty,
+    tagPropertySuffix,
+  }: TagFilterParams,
+): RenderedGroup[] {
+  if (activeTagFilters.length === 0) {
+    return groups;
+  }
+
+  const normalizedActiveTagFilters = activeTagFilters
+    .map((tagFilter) => normalizeTagFilterValue(tagFilter))
+    .filter((tagFilter) => tagFilter.length > 0);
+
+  if (normalizedActiveTagFilters.length === 0) {
+    return groups;
+  }
+
+  const tagPropertyIds = selectedProperties.filter((propertyId) => {
+    if (propertyId === groupByProperty) {
+      return false;
+    }
+
+    return propertyId.endsWith(tagPropertySuffix);
+  });
+
+  return groups.map((group) => ({
+    group: group.group,
+    entries: group.entries.filter((entry) => {
+      return entryMatchesTagFilter(
+        entry,
+        normalizedActiveTagFilters,
+        tagPropertyIds,
+      );
+    }),
   }));
 }

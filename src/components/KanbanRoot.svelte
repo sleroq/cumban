@@ -30,6 +30,7 @@
         groupsStore: Readable<
             Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>
         >;
+        activeTagFiltersStore: Readable<string[]>;
         groupByPropertyStore: Readable<BasesPropertyId | null>;
         selectedPropertiesStore: Readable<BasesPropertyId[]>;
         columnScrollByKeyStore: Readable<Record<string, number>>;
@@ -51,6 +52,7 @@
         columnBlur,
         columnsRightToLeft,
         groupsStore,
+        activeTagFiltersStore,
         groupByPropertyStore,
         selectedPropertiesStore,
         columnScrollByKeyStore,
@@ -92,6 +94,7 @@
     });
 
     const groups = $derived($groupsStore);
+    const activeTagFilters = $derived($activeTagFiltersStore);
     const groupByProperty = $derived($groupByPropertyStore);
     const selectedProperties = $derived($selectedPropertiesStore);
     const columnScrollByKey = $derived($columnScrollByKeyStore);
@@ -102,6 +105,7 @@
 
 <KanbanBoard
     {groups}
+    {activeTagFilters}
     {groupByProperty}
     {selectedProperties}
     {initialBoardScrollLeft}

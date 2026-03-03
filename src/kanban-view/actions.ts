@@ -16,6 +16,7 @@ export type PropertyType =
 
 export type KanbanCardCallbacks = {
   select: (filePath: string, extendSelection: boolean) => void;
+  tagClick: (tag: string) => void;
   dragStart: (filePath: string, cardIndex: number) => void;
   dragEnd: () => void;
   drop: (
@@ -75,6 +76,7 @@ export type KanbanBoardCallbacks = {
   scroll: (scrollLeft: number, scrollTop: number) => void;
   keyDown: (evt: KeyboardEvent) => void;
   click: () => void;
+  clearTagFilter: () => void;
   addColumn: () => void;
 };
 

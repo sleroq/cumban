@@ -16,11 +16,12 @@
     import { KANBAN_CONTEXT_KEY } from "../kanban-view/context";
     import type { KanbanContext } from "../kanban-view/context";
     import { createKanbanDragState } from "../kanban-view/drag-state";
-    import { getColumnKey } from "../kanban-view/utils";
+    import { getColumnKey, normalizeTagDisplayValue } from "../kanban-view/utils";
     import { flip } from "svelte/animate";
 
     type Props = {
         groups: Array<{ group: BasesEntryGroup; entries: BasesEntry[] }>;
+        activeTagFilters: string[];
         groupByProperty: BasesPropertyId | null;
         selectedProperties: BasesPropertyId[];
         initialBoardScrollLeft: number;
@@ -33,6 +34,7 @@
 
     let {
         groups,
+        activeTagFilters,
         groupByProperty,
         selectedProperties,
         initialBoardScrollLeft,
@@ -55,6 +57,64 @@
     let activePropertyEditorClose: (() => Promise<void>) | null = null;
     let activePropertyEditorContainsTarget: ((target: Node) => boolean) | null =
         null;
+
+    type PrettyPropertiesApi = {
+        getPropertyBackgroundColorValue: (
+            propName: string,
+            propValue: string,
+        ) => string;
+        getPropertyTextColorValue: (
+            propName: string,
+            propValue: string,
+        ) => string;
+    };
+
+    type WindowWithPrettyPropertiesApi = Window & {
+        PrettyPropertiesApi?: PrettyPropertiesApi;
+    };
+
+    function getTagDisplayValue(value: string): string {
+        const normalizedTagValue = normalizeTagDisplayValue(value);
+        if (normalizedTagValue.length === 0) {
+            return value;
+        }
+        return `#${normalizedTagValue}`;
+    }
+
+    function getPrettyTagStyleVars(value: string): string | undefined {
+        if (typeof window === "undefined") {
+            return undefined;
+        }
+
+        const prettyApi = (window as WindowWithPrettyPropertiesApi)
+            .PrettyPropertiesApi;
+        if (prettyApi === undefined) {
+            return undefined;
+        }
+
+        const normalizedTagValue = normalizeTagDisplayValue(value);
+        const background =
+            prettyApi.getPropertyBackgroundColorValue("tags", normalizedTagValue) ??
+            "";
+        const text =
+            prettyApi.getPropertyTextColorValue("tags", normalizedTagValue) ?? "";
+
+        const cssVars: string[] = [];
+        if (background !== "") {
+            cssVars.push(`--tag-background: ${background}`);
+            cssVars.push(`--tag-background-hover: ${background}`);
+        }
+        if (text !== "") {
+            cssVars.push(`--tag-color: ${text}`);
+            cssVars.push(`--tag-color-hover: ${text}`);
+        }
+
+        if (cssVars.length === 0) {
+            return undefined;
+        }
+
+        return cssVars.join("; ");
+    }
 
     function conditionalFlip(
         node: Element,
@@ -130,6 +190,23 @@
             return;
         }
         callbacks.board.click();
+    }
+
+    function handleBoardKeyDown(evt: KeyboardEvent): void {
+        if (evt.key === "Escape" && activeTagFilters.length > 0) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            callbacks.board.clearTagFilter();
+            return;
+        }
+
+        callbacks.board.keyDown(evt);
+    }
+
+    function handleClearTagFilterClick(evt: MouseEvent | KeyboardEvent): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        callbacks.board.clearTagFilter();
     }
 
     function handleAddColumnClick(evt: MouseEvent): void {
@@ -304,52 +381,99 @@
     });
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div
-    bind:this={boardEl}
-    class="bases-kanban-board"
-    style:flex-direction={columnsRightToLeft ? "row-reverse" : "row"}
-    data-keyboard-bound="true"
-    tabindex="0"
-    onkeydown={callbacks.board.keyDown}
-    onclick={handleBoardClick}
-    ondragover={handleBoardColumnDragOver}
-    ondrop={handleBoardColumnDrop}
-    role="application"
->
-    {#each groups as { group, entries }, idx (getColumnKey(group.key))}
-        {@const columnKey = getColumnKey(group.key)}
-        {@const groupKey = group.key}
-        {@const startIndex = startCardIndexes[idx] ?? 0}
-        {@const groupEntries = entries}
-        {@const isPinned = pinnedColumns.has(columnKey)}
-        <div animate:conditionalFlip={{ duration: 100 }}>
-            <KanbanColumn
-                {columnKey}
-                {groupKey}
-                entries={groupEntries}
-                startCardIndex={startIndex}
-                initialScrollTop={columnScrollByKey[columnKey] ?? 0}
-                {isPinned}
-                onStartColumnDrag={handleStartColumnDrag}
-                onEndColumnDrag={handleEndColumnDrag}
-                onSetColumnDropTarget={handleSetColumnDropTarget}
-                onColumnDrop={handleColumnDrop}
-                onStartCardDrag={handleStartCardDrag}
-                onEndCardDrag={handleEndCardDrag}
-                onSetCardDropTarget={handleSetCardDropTarget}
-                onCardDrop={handleCardDrop}
-            />
+<div class="bases-kanban-board-shell">
+    {#if activeTagFilters.length > 0}
+        <div class="bases-kanban-active-filter" role="status" aria-live="polite">
+            <span class="bases-kanban-active-filter-label">Tag filter:</span>
+            {#each activeTagFilters as activeTagFilter (activeTagFilter)}
+                <span
+                    class="bases-kanban-property-value bases-kanban-property-tag"
+                    style={getPrettyTagStyleVars(activeTagFilter)}
+                >
+                    {getTagDisplayValue(activeTagFilter)}
+                </span>
+            {/each}
+            <div
+                class="clickable-icon"
+                role="button"
+                tabindex="0"
+                aria-label="Clear tag filter"
+                onclick={handleClearTagFilterClick}
+                onkeydown={(evt: KeyboardEvent) => {
+                    if (evt.key === "Enter" || evt.key === " ") {
+                        handleClearTagFilterClick(evt);
+                    }
+                }}
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="svg-icon lucide-trash-2"
+                >
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+            </div>
         </div>
-    {/each}
-    <button
-        type="button"
-        class="bases-kanban-add-column-button"
-        aria-label="Add new column"
-        title="Add new column"
-        onclick={handleAddColumnClick}
+    {/if}
+
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div
+        bind:this={boardEl}
+        class="bases-kanban-board"
+        style:flex-direction={columnsRightToLeft ? "row-reverse" : "row"}
+        data-keyboard-bound="true"
+        tabindex="0"
+        onkeydown={handleBoardKeyDown}
+        onclick={handleBoardClick}
+        ondragover={handleBoardColumnDragOver}
+        ondrop={handleBoardColumnDrop}
+        role="application"
     >
-        +
-    </button>
+        {#each groups as { group, entries }, idx (getColumnKey(group.key))}
+            {@const columnKey = getColumnKey(group.key)}
+            {@const groupKey = group.key}
+            {@const startIndex = startCardIndexes[idx] ?? 0}
+            {@const groupEntries = entries}
+            {@const isPinned = pinnedColumns.has(columnKey)}
+            <div animate:conditionalFlip={{ duration: 100 }}>
+                <KanbanColumn
+                    {columnKey}
+                    {groupKey}
+                    entries={groupEntries}
+                    startCardIndex={startIndex}
+                    initialScrollTop={columnScrollByKey[columnKey] ?? 0}
+                    {isPinned}
+                    onStartColumnDrag={handleStartColumnDrag}
+                    onEndColumnDrag={handleEndColumnDrag}
+                    onSetColumnDropTarget={handleSetColumnDropTarget}
+                    onColumnDrop={handleColumnDrop}
+                    onStartCardDrag={handleStartCardDrag}
+                    onEndCardDrag={handleEndCardDrag}
+                    onSetCardDropTarget={handleSetCardDropTarget}
+                    onCardDrop={handleCardDrop}
+                />
+            </div>
+        {/each}
+        <button
+            type="button"
+            class="bases-kanban-add-column-button"
+            aria-label="Add new column"
+            title="Add new column"
+            onclick={handleAddColumnClick}
+        >
+            +
+        </button>
+    </div>
 </div>

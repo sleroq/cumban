@@ -42,6 +42,7 @@ import { getKanbanViewOptions } from "./kanban-view/options";
 import {
   detectGroupByProperty,
   getColumnKey,
+  normalizeTagFilterValue,
   getTargetGroupValue,
   getPropertyValues,
   getPropertyCandidates,
@@ -72,6 +73,7 @@ import { persistCurrentBaseViewAsDefault } from "./kanban-view/base-view-order";
 
 import {
   type RenderedGroup,
+  filterRenderedGroupsByTag,
   mergeGroupsByColumnKey,
   sortGroupsByColumnOrder,
   buildRenderedGroups,
@@ -320,11 +322,12 @@ export class KanbanView extends BasesView {
   private svelteApp: ReturnType<typeof KanbanRoot> | null = null;
   private readonly viewModel: KanbanViewModel;
   private columnsRightToLeft = false;
-  private currentRenderedGroups: RenderedGroup[] = [];
+  private canonicalRenderedGroups: RenderedGroup[] = [];
   private incrementalLoadRafId: number | null = null;
   private isPersistingActiveView = false;
   private hasPendingDataUpdate = false;
   private isClosed = false;
+  private activeTagFilters: string[] = [];
 
   constructor(
     controller: QueryController,
@@ -344,6 +347,9 @@ export class KanbanView extends BasesView {
 
   onPluginSettingsChanged(): void {
     this.applyBackgroundStyles();
+    if (this.activeTagFilters.length > 0 && this.svelteApp !== null) {
+      this.render();
+    }
   }
 
   onDataUpdated(): void {
@@ -466,6 +472,11 @@ export class KanbanView extends BasesView {
       pinnedColumns,
     );
     const groups = mergeGroupsByColumnKey(groupsWithPinned);
+    const selectedProperties = getSelectedProperties(this.data?.properties);
+    const groupByProperty = detectGroupByProperty(
+      rawGroups,
+      getPropertyCandidates(selectedProperties, this.allProperties),
+    );
     const totalEntries = groups.reduce(
       (sum, group) => sum + group.entries.length,
       0,
@@ -504,14 +515,23 @@ export class KanbanView extends BasesView {
 
     const columnOrder = this.getColumnOrderFromConfig();
     const orderedGroups = sortGroupsByColumnOrder(groups, columnOrder);
-    const renderedGroups = buildRenderedGroups(
+    const canonicalRenderedGroups = buildRenderedGroups(
       orderedGroups,
       localCardOrderByColumn,
     );
+    const filteredRenderedGroups = filterRenderedGroupsByTag(
+      canonicalRenderedGroups,
+      {
+        activeTagFilters: this.activeTagFilters,
+        selectedProperties,
+        groupByProperty,
+        tagPropertySuffix: this.plugin.settings.tagPropertySuffix,
+      },
+    );
     const columnsRightToLeft = this.getColumnsRightToLeftFromConfig();
 
-    if (renderedGroups.length > 0) {
-      const firstColumn = renderedGroups[0];
+    if (filteredRenderedGroups.length > 0) {
+      const firstColumn = filteredRenderedGroups[0];
       const columnKey = getColumnKey(firstColumn.group.key);
       logRenderEvent("First column entries", {
         columnKey,
@@ -520,21 +540,15 @@ export class KanbanView extends BasesView {
       });
     }
 
-    this.currentRenderedGroups = renderedGroups;
+    this.canonicalRenderedGroups = canonicalRenderedGroups;
 
-    this.refreshEntryIndexes(renderedGroups);
+    this.refreshEntryIndexes(canonicalRenderedGroups);
     this.updateSvelteProps();
-
-    const selectedProperties = getSelectedProperties(this.data?.properties);
-    const groupByProperty = detectGroupByProperty(
-      rawGroups,
-      getPropertyCandidates(selectedProperties, this.allProperties),
-    );
 
     if (this.svelteApp === null) {
       logRenderEvent("Mounting Svelte app for first render");
       this.rootEl.empty();
-      const shellGroups: RenderedGroup[] = renderedGroups.map((rg) => ({
+      const shellGroups: RenderedGroup[] = filteredRenderedGroups.map((rg) => ({
         group: rg.group,
         entries: [],
       }));
@@ -545,7 +559,7 @@ export class KanbanView extends BasesView {
         columnsRightToLeft,
       );
       this.scheduleIncrementalCardLoad(
-        renderedGroups,
+        filteredRenderedGroups,
         groupByProperty,
         selectedProperties,
       );
@@ -554,7 +568,7 @@ export class KanbanView extends BasesView {
         this.unmountSvelteApp();
         this.rootEl.empty();
         this.mountSvelteApp(
-          renderedGroups,
+          filteredRenderedGroups,
           groupByProperty,
           selectedProperties,
           columnsRightToLeft,
@@ -569,7 +583,7 @@ export class KanbanView extends BasesView {
       this.viewModel.setAnimationsReady(true);
       logRenderEvent("Updating Svelte app props (Svelte handles DOM diffing)");
       this.updateSvelteAppProps(
-        renderedGroups,
+        filteredRenderedGroups,
         groupByProperty,
         selectedProperties,
       );
@@ -599,6 +613,7 @@ export class KanbanView extends BasesView {
       groupByProperty,
       selectedProperties,
     });
+    this.viewModel.setActiveTagFilters(this.activeTagFilters);
     this.viewModel.setColumnScrollByKey(columnScrollByKey);
     this.viewModel.setPinnedColumns(new Set(this.getPinnedColumnsFromConfig()));
 
@@ -606,6 +621,7 @@ export class KanbanView extends BasesView {
       card: {
         select: (filePath: string, extendSelection: boolean) =>
           this.selectCard(filePath, extendSelection),
+        tagClick: (tag: string) => this.toggleTagFilter(tag),
         dragStart: (filePath: string, cardIndex: number) =>
           this.startCardDrag(filePath, cardIndex),
         dragEnd: () => this.endCardDrag(),
@@ -666,6 +682,7 @@ export class KanbanView extends BasesView {
           this.debouncedSaveBoardScrollPosition(scrollLeft, scrollTop),
         keyDown: (evt: KeyboardEvent) => this.handleKeyDown(evt),
         click: () => this.clearSelection(),
+        clearTagFilter: () => this.clearTagFilter(),
         addColumn: () => this.promptAndAddPinnedEmptyColumn(),
       },
     };
@@ -696,6 +713,7 @@ export class KanbanView extends BasesView {
           this.plugin.settings.columnBlur,
         columnsRightToLeft,
         groupsStore: this.viewModel.groupsStore,
+        activeTagFiltersStore: this.viewModel.activeTagFiltersStore,
         groupByPropertyStore: this.viewModel.groupByPropertyStore,
         selectedPropertiesStore: this.viewModel.selectedPropertiesStore,
         columnScrollByKeyStore: this.viewModel.columnScrollByKeyStore,
@@ -1549,7 +1567,7 @@ export class KanbanView extends BasesView {
   }
 
   private getColumnCardPaths(columnKey: string): string[] {
-    for (const { group, entries } of this.currentRenderedGroups) {
+    for (const { group, entries } of this.canonicalRenderedGroups) {
       if (getColumnKey(group.key) === columnKey) {
         return entries.map((entry) => entry.file.path);
       }
@@ -1599,7 +1617,42 @@ export class KanbanView extends BasesView {
     this.viewModel.setSelectedPaths(this.selectionState.selectedPaths);
   }
 
-  private startCardDrag(filePath: string, cardIndex: number): void {
+  private clearTagFilter(): void {
+    this.setActiveTagFilters([]);
+  }
+
+  private toggleTagFilter(tag: string): void {
+    const normalizedTagFilter = normalizeTagFilterValue(tag);
+    if (normalizedTagFilter.length === 0) {
+      return;
+    }
+
+    const currentFilters = this.activeTagFilters;
+    if (currentFilters.includes(normalizedTagFilter)) {
+      this.setActiveTagFilters(
+        currentFilters.filter((filter) => filter !== normalizedTagFilter),
+      );
+    } else {
+      this.setActiveTagFilters([...currentFilters, normalizedTagFilter]);
+    }
+  }
+
+  private setActiveTagFilters(activeTagFilters: string[]): void {
+    const nextFilters = [...new Set(activeTagFilters)];
+    if (
+      this.activeTagFilters.length === nextFilters.length &&
+      this.activeTagFilters.every((filter, index) => filter === nextFilters[index])
+    ) {
+      return;
+    }
+
+    this.activeTagFilters = nextFilters;
+    this.viewModel.setActiveTagFilters(this.activeTagFilters);
+    this.render();
+  }
+
+  private startCardDrag(filePath: string, _cardIndex: number): void {
+    const canonicalCardIndex = this.getCardIndex(filePath);
     const draggedPaths = getDraggedPathsState(
       this.selectionState,
       filePath,
@@ -1607,7 +1660,7 @@ export class KanbanView extends BasesView {
     );
     logDragEvent("Card drag started", {
       sourcePath: filePath,
-      cardIndex,
+      cardIndex: canonicalCardIndex,
       selectedCount: this.selectionState.selectedPaths.size,
       draggingCount: draggedPaths.length,
     });
@@ -1615,7 +1668,7 @@ export class KanbanView extends BasesView {
     if (!isPathSelected(this.selectionState, filePath)) {
       this.selectionState = {
         selectedPaths: new Set([filePath]),
-        lastSelectedIndex: cardIndex,
+        lastSelectedIndex: canonicalCardIndex,
       };
       this.updateSvelteProps();
     }
@@ -1689,7 +1742,7 @@ export class KanbanView extends BasesView {
       return;
     }
 
-    const orderedKeys = this.currentRenderedGroups.map(({ group }) =>
+    const orderedKeys = this.canonicalRenderedGroups.map(({ group }) =>
       getColumnKey(group.key),
     );
     const sourceIndex = orderedKeys.indexOf(sourceColumnKey);
@@ -1844,7 +1897,7 @@ export class KanbanView extends BasesView {
   }
 
   private getEntriesForColumn(columnKey: string): BasesEntry[] {
-    const renderedGroup = this.currentRenderedGroups.find(({ group }) => {
+    const renderedGroup = this.canonicalRenderedGroups.find(({ group }) => {
       return getColumnKey(group.key) === columnKey;
     });
     return renderedGroup?.entries ?? [];
@@ -2044,7 +2097,7 @@ export class KanbanView extends BasesView {
 
   private getUniqueColumnKey(baseColumnKey: string): string {
     const existingColumnKeys = new Set<string>(
-      this.currentRenderedGroups.map(({ group }) => getColumnKey(group.key)),
+      this.canonicalRenderedGroups.map(({ group }) => getColumnKey(group.key)),
     );
     for (const pinnedColumnKey of this.getPinnedColumnsFromConfig()) {
       existingColumnKeys.add(pinnedColumnKey);

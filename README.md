@@ -16,6 +16,7 @@
 - Pin columns so they stay visible even when there are no cards
 - Drag column headers to reorder columns
 - Rememeber last openned view
+- Click on tag to filter by it temporarily
 
 ## Planned Features
 
@@ -23,7 +24,6 @@
 - Card blockers
 - Navigation between cards with HJKL
 - Commands for moving the cards around
-- Reorder properties
 - Per-view properties visibility settings
 - Drag & drop on mobile
 - Convert checklist items into cards
@@ -31,7 +31,6 @@
 - Card icons (maybe?)
 - [Fizzy](https://www.fizzy.do/)-like board view
 - Convert selected cards into Markdown checklist (maybe?)
-- Click-on-tag filter (maybe?)
 - Horizontal groups (maybe?)
 - Multi-card editing of properties (maybe?)
 

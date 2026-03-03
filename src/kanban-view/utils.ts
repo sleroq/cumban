@@ -1,4 +1,9 @@
-import { BasesEntryGroup, type BasesPropertyId, NullValue } from "obsidian";
+import {
+  BasesEntry,
+  BasesEntryGroup,
+  type BasesPropertyId,
+  NullValue,
+} from "obsidian";
 
 import { NO_VALUE_COLUMN, NO_VALUE_COLUMN_KEY } from "./constants";
 
@@ -254,6 +259,60 @@ export function getPropertyValues(value: unknown): string[] | null {
   }
 
   return [stringValue];
+}
+
+export function normalizeTagDisplayValue(value: string): string {
+  const trimmed = value.trim();
+  const wikiLinks = parseWikiLinks(trimmed);
+  if (
+    wikiLinks.length === 1 &&
+    trimmed.startsWith("[[") &&
+    trimmed.endsWith("]]")
+  ) {
+    return wikiLinks[0].display;
+  }
+
+  if (trimmed.startsWith("#")) {
+    return trimmed.slice(1).trim();
+  }
+
+  return trimmed;
+}
+
+export function normalizeTagFilterValue(value: string): string {
+  return normalizeTagDisplayValue(value).toLowerCase();
+}
+
+export function getEntryTagValues(
+  entry: BasesEntry,
+  tagPropertyIds: BasesPropertyId[],
+): string[] {
+  const tagValues: string[] = [];
+  const seenTagKeys = new Set<string>();
+
+  for (const propertyId of tagPropertyIds) {
+    const values = getPropertyValues(entry.getValue(propertyId));
+    if (values === null) {
+      continue;
+    }
+
+    for (const value of values) {
+      const normalized = normalizeTagDisplayValue(value);
+      if (normalized.length === 0) {
+        continue;
+      }
+
+      const normalizedKey = normalized.toLowerCase();
+      if (seenTagKeys.has(normalizedKey)) {
+        continue;
+      }
+
+      seenTagKeys.add(normalizedKey);
+      tagValues.push(normalized);
+    }
+  }
+
+  return tagValues;
 }
 
 export function getColumnName(

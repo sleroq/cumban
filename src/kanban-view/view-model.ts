@@ -6,6 +6,7 @@ import { getColumnKey } from "./utils";
 
 export type KanbanViewModel = {
   selectedPathsStore: Writable<Set<string>>;
+  activeTagFiltersStore: Writable<string[]>;
   groupsStore: Writable<RenderedGroup[]>;
   groupByPropertyStore: Writable<BasesPropertyId | null>;
   selectedPropertiesStore: Writable<BasesPropertyId[]>;
@@ -15,6 +16,7 @@ export type KanbanViewModel = {
   draggingColumnSourceKeyStore: Writable<string | null>;
   animationsReadyStore: Writable<boolean>;
   setSelectedPaths: (selectedPaths: Set<string>) => void;
+  setActiveTagFilters: (activeTagFilters: string[]) => void;
   setBoardData: (params: {
     groups: RenderedGroup[];
     groupByProperty: BasesPropertyId | null;
@@ -32,6 +34,7 @@ export type KanbanViewModel = {
 
 export function createKanbanViewModel(): KanbanViewModel {
   const selectedPathsStore = writable(new Set<string>());
+  const activeTagFiltersStore = writable<string[]>([]);
   const groupsStore = writable<RenderedGroup[]>([]);
   const groupByPropertyStore = writable<BasesPropertyId | null>(null);
   const selectedPropertiesStore = writable<BasesPropertyId[]>([]);
@@ -107,6 +110,7 @@ export function createKanbanViewModel(): KanbanViewModel {
 
   return {
     selectedPathsStore,
+    activeTagFiltersStore,
     groupsStore,
     groupByPropertyStore,
     selectedPropertiesStore,
@@ -118,6 +122,13 @@ export function createKanbanViewModel(): KanbanViewModel {
 
     setSelectedPaths(selectedPaths: Set<string>): void {
       selectedPathsStore.set(new Set(selectedPaths));
+    },
+
+    setActiveTagFilters(activeTagFilters: string[]): void {
+      const currentActiveTagFilters = get(activeTagFiltersStore);
+      if (!areStringArraysEqual(currentActiveTagFilters, activeTagFilters)) {
+        activeTagFiltersStore.set([...activeTagFilters]);
+      }
     },
 
     setBoardData({ groups, groupByProperty, selectedProperties }): void {

@@ -4,7 +4,11 @@
     import type { PropertyEditorMode } from "../kanban-view/actions";
     import type { PropertyType } from "../kanban-view/actions";
     import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-popover";
-    import { getPropertyValues, parseWikiLinks } from "../kanban-view/utils";
+    import {
+        getPropertyValues,
+        normalizeTagDisplayValue,
+        parseWikiLinks,
+    } from "../kanban-view/utils";
     import {
         KANBAN_BOARD_CONTEXT_KEY,
         type KanbanBoardContext,
@@ -170,18 +174,11 @@
         return text.slice(0, maxLength - 3) + "...";
     }
 
-    function normalizeTagValue(value: string): string {
-        if (value.startsWith("#")) {
-            return value.slice(1);
-        }
-        return value;
-    }
-
     function getTagDisplayValue(value: string, isTagProperty: boolean): string {
         if (!isTagProperty) {
             return value;
         }
-        const normalizedTagValue = normalizeTagValue(value);
+        const normalizedTagValue = normalizeTagDisplayValue(value);
         if (normalizedTagValue.length === 0) {
             return value;
         }
@@ -204,7 +201,7 @@
             return undefined;
         }
 
-        const normalizedTagValue = normalizeTagValue(value);
+        const normalizedTagValue = normalizeTagDisplayValue(value);
         const background =
             prettyApi?.getPropertyBackgroundColorValue(
                 "tags",
@@ -844,6 +841,15 @@
         callbacks.card.linkClick(evt, target);
     }
 
+    function handleTagClick(
+        evt: MouseEvent | KeyboardEvent,
+        tag: string,
+    ): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        callbacks.card.tagClick(tag);
+    }
+
     function handlePropertyLinkHover(evt: MouseEvent, target: string): void {
         callbacks.card.linkHover(evt, target);
     }
@@ -1379,18 +1385,25 @@
                                             </div>
                                         </div>
                                     {:else}
-                                        {@const cls = isTagProperty
-                                            ? "bases-kanban-property-value bases-kanban-property-tag"
-                                            : "bases-kanban-property-value"}
-                                        <span
-                                            class={cls}
-                                            style={getPrettyTagStyleVars(
-                                                value,
-                                                isTagProperty,
-                                            )}
-                                        >
-                                            {truncatedValue}
-                                        </span>
+                                        {#if isTagProperty}
+                                            <span
+                                                class="bases-kanban-property-value bases-kanban-property-tag"
+                                                style={getPrettyTagStyleVars(
+                                                    value,
+                                                    isTagProperty,
+                                                )}
+                                                onclick={(evt: MouseEvent) =>
+                                                    handleTagClick(evt, value)}
+                                            >
+                                                {truncatedValue}
+                                            </span>
+                                        {:else}
+                                            <span
+                                                class="bases-kanban-property-value"
+                                            >
+                                                {truncatedValue}
+                                            </span>
+                                        {/if}
                                     {/if}
                                 {:else}
                                     {#each links as link, linkIndex (linkIndex)}
@@ -1411,15 +1424,23 @@
                                                 isTagProperty,
                                             )}
                                             onclick={(evt: MouseEvent) =>
-                                                handlePropertyLinkClick(
-                                                    evt,
-                                                    link.target,
-                                                )}
-                                            onmouseenter={(evt: MouseEvent) =>
-                                                handlePropertyLinkHover(
-                                                    evt,
-                                                    link.target,
-                                                )}
+                                                isTagProperty
+                                                    ? handleTagClick(
+                                                          evt,
+                                                          link.display,
+                                                      )
+                                                    : handlePropertyLinkClick(
+                                                          evt,
+                                                          link.target,
+                                                      )}
+                                            onmouseenter={(evt: MouseEvent) => {
+                                                if (!isTagProperty) {
+                                                    handlePropertyLinkHover(
+                                                        evt,
+                                                        link.target,
+                                                    );
+                                                }
+                                            }}
                                         >
                                             {truncatedLinkDisplay}
                                         </a>
