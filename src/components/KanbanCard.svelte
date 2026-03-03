@@ -850,6 +850,12 @@
         callbacks.card.tagClick(tag);
     }
 
+    function handleTagKeyDown(evt: KeyboardEvent, tag: string): void {
+        if (evt.key === "Enter" || evt.key === " ") {
+            handleTagClick(evt, tag);
+        }
+    }
+
     function handlePropertyLinkHover(evt: MouseEvent, target: string): void {
         callbacks.card.linkHover(evt, target);
     }
@@ -1392,8 +1398,14 @@
                                                     value,
                                                     isTagProperty,
                                                 )}
+                                                role="button"
+                                                tabindex="0"
                                                 onclick={(evt: MouseEvent) =>
                                                     handleTagClick(evt, value)}
+                                                onkeydown={(
+                                                    evt: KeyboardEvent,
+                                                ) =>
+                                                    handleTagKeyDown(evt, value)}
                                             >
                                                 {truncatedValue}
                                             </span>

@@ -542,7 +542,7 @@ export class KanbanView extends BasesView {
 
     this.canonicalRenderedGroups = canonicalRenderedGroups;
 
-    this.refreshEntryIndexes(canonicalRenderedGroups);
+    this.refreshEntryIndexes(filteredRenderedGroups);
     this.updateSvelteProps();
 
     if (this.svelteApp === null) {
