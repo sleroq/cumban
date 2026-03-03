@@ -28,14 +28,45 @@ function normalizeGroupKey(groupKey: unknown): string | null {
   return String(groupKey);
 }
 
+function isBasesPropertyId(value: string): value is BasesPropertyId {
+  return /^note\.|^formula\.|^file\./.test(value);
+}
+
+function getPropertyIdFromUnknown(value: unknown): BasesPropertyId | null {
+  if (typeof value === "string") {
+    return isBasesPropertyId(value) ? value : null;
+  }
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = record.id;
+  if (typeof id === "string") {
+    return isBasesPropertyId(id) ? id : null;
+  }
+
+  const propertyId = record.propertyId;
+  if (typeof propertyId === "string") {
+    return isBasesPropertyId(propertyId) ? propertyId : null;
+  }
+
+  return null;
+}
+
 export function getSelectedProperties(properties: unknown): BasesPropertyId[] {
   if (!Array.isArray(properties)) {
     return [];
   }
 
-  return properties.filter((propertyId): propertyId is BasesPropertyId => {
-    return typeof propertyId === "string";
-  });
+  const selected = properties
+    .map((property) => getPropertyIdFromUnknown(property))
+    .filter((propertyId): propertyId is BasesPropertyId => {
+      return propertyId !== null;
+    });
+
+  return Array.from(new Set(selected));
 }
 
 export function getPropertyCandidates(
@@ -163,6 +194,10 @@ function splitTopLevelCommaSeparated(value: string): string[] {
 }
 
 function toPropertyValueText(value: unknown): string | null {
+  if (value instanceof NullValue) {
+    return null;
+  }
+
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
@@ -175,6 +210,23 @@ function toPropertyValueText(value: unknown): string | null {
   ) {
     const trimmed = String(value).trim();
     return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof value === "object" && value !== null) {
+    const record = value as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(record, "data")) {
+      return toPropertyValueText(record.data);
+    }
+
+    const prototype: unknown = Object.getPrototypeOf(value);
+    if (
+      prototype !== null &&
+      prototype !== Object.prototype &&
+      typeof (value as { toString: () => string }).toString === "function"
+    ) {
+      const text = (value as { toString: () => string }).toString().trim();
+      return text.length > 0 ? text : null;
+    }
   }
 
   return null;
