@@ -87,6 +87,8 @@
     let isEditingTitle = $state(false);
     let titleDraft = $state("");
     let isRenamingTitle = $state(false);
+    let coverImageLoadFailed = $state(false);
+    let lastCoverImageUrl: string | null = null;
 
     let pendingContentSync = $state<{
         content: string;
@@ -124,6 +126,14 @@
     const coverImageUrl = $derived(
         resolveCardCoverUrl(entry, cardCoverSource, cardCoverEnabled),
     );
+
+    $effect((): void => {
+        if (coverImageUrl === lastCoverImageUrl) {
+            return;
+        }
+        lastCoverImageUrl = coverImageUrl;
+        coverImageLoadFailed = false;
+    });
 
     const propertiesToDisplay = $derived(
         selectedProperties.filter(
@@ -284,6 +294,10 @@
             return null;
         }
         return resolveCoverValueToImageUrl(rawCoverValue, entry.file.path);
+    }
+
+    function handleCoverImageError(): void {
+        coverImageLoadFailed = true;
     }
 
     function getTagDisplayValue(value: string, isTagProperty: boolean): string {
@@ -1155,7 +1169,7 @@
     role="button"
     tabindex="0"
 >
-    {#if coverImageUrl !== null}
+    {#if coverImageUrl !== null && !coverImageLoadFailed}
         <div class="bases-kanban-card-cover">
             <img
                 src={coverImageUrl}
@@ -1163,6 +1177,7 @@
                 loading="lazy"
                 decoding="async"
                 draggable="false"
+                onerror={handleCoverImageError}
             />
         </div>
     {/if}
