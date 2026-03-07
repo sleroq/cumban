@@ -6,6 +6,8 @@ import type { KanbanDragState } from "./drag-state";
 export type KanbanBoardContext = {
   groupByProperty: BasesPropertyId | null;
   selectedProperties: BasesPropertyId[];
+  cardCoverEnabled: boolean;
+  cardCoverSource: string;
   dragState: KanbanDragState;
   callbacks: KanbanCallbacks;
   setActivePropertyEditor: (

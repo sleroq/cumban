@@ -237,6 +237,14 @@ function toPropertyValueText(value: unknown): string | null {
   return null;
 }
 
+export function getPropertyScalarValue(value: unknown): string | null {
+  if (value === null || value === undefined || value instanceof NullValue) {
+    return null;
+  }
+
+  return toPropertyValueText(value);
+}
+
 export function getPropertyValues(value: unknown): string[] | null {
   if (value === null || value === undefined || value instanceof NullValue) {
     return null;

@@ -326,6 +326,43 @@
 	box-sizing: border-box;
 }
 
+.bases-kanban-card-cover {
+	width: auto;
+	height: var(--bases-kanban-card-cover-height, 140px);
+	margin: calc(-1 * var(--size-4-2)) calc(-1 * var(--size-4-3)) var(--size-4-2)
+		calc(-1 * var(--size-4-3));
+	border-radius: calc(var(--radius-s) - 1px) calc(var(--radius-s) - 1px) 0 0;
+	overflow: hidden;
+	background: var(--background-secondary);
+	position: relative;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.bases-kanban-card-cover img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: transform 220ms ease;
+}
+
+.bases-kanban-card-cover::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0.08) 0%,
+		rgba(0, 0, 0, 0.02) 48%,
+		rgba(0, 0, 0, 0.18) 100%
+	);
+	pointer-events: none;
+}
+
+.bases-kanban-card:hover .bases-kanban-card-cover img {
+	transform: scale(1.035);
+}
+
 .bases-kanban-card:hover {
 	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
 	transform: translateY(-1px);

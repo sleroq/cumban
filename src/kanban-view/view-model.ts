@@ -10,6 +10,8 @@ export type KanbanViewModel = {
   groupsStore: Writable<RenderedGroup[]>;
   groupByPropertyStore: Writable<BasesPropertyId | null>;
   selectedPropertiesStore: Writable<BasesPropertyId[]>;
+  cardCoverEnabledStore: Writable<boolean>;
+  cardCoverSourceStore: Writable<string>;
   columnScrollByKeyStore: Writable<Record<string, number>>;
   pinnedColumnsStore: Writable<Set<string>>;
   draggingCardSourcePathStore: Writable<string | null>;
@@ -21,6 +23,8 @@ export type KanbanViewModel = {
     groups: RenderedGroup[];
     groupByProperty: BasesPropertyId | null;
     selectedProperties: BasesPropertyId[];
+    cardCoverEnabled: boolean;
+    cardCoverSource: string;
   }) => void;
   setColumnScrollByKey: (scrollByKey: Record<string, number>) => void;
   setPinnedColumns: (columns: Set<string>) => void;
@@ -38,6 +42,8 @@ export function createKanbanViewModel(): KanbanViewModel {
   const groupsStore = writable<RenderedGroup[]>([]);
   const groupByPropertyStore = writable<BasesPropertyId | null>(null);
   const selectedPropertiesStore = writable<BasesPropertyId[]>([]);
+  const cardCoverEnabledStore = writable<boolean>(true);
+  const cardCoverSourceStore = writable<string>("cover");
   const columnScrollByKeyStore = writable<Record<string, number>>({});
   const pinnedColumnsStore = writable(new Set<string>());
   const draggingCardSourcePathStore = writable<string | null>(null);
@@ -114,6 +120,8 @@ export function createKanbanViewModel(): KanbanViewModel {
     groupsStore,
     groupByPropertyStore,
     selectedPropertiesStore,
+    cardCoverEnabledStore,
+    cardCoverSourceStore,
     columnScrollByKeyStore,
     pinnedColumnsStore,
     draggingCardSourcePathStore,
@@ -131,7 +139,13 @@ export function createKanbanViewModel(): KanbanViewModel {
       }
     },
 
-    setBoardData({ groups, groupByProperty, selectedProperties }): void {
+    setBoardData({
+      groups,
+      groupByProperty,
+      selectedProperties,
+      cardCoverEnabled,
+      cardCoverSource,
+    }): void {
       const currentGroups = get(groupsStore);
       if (!areRenderedGroupsEqual(currentGroups, groups)) {
         groupsStore.set(groups);
@@ -146,6 +160,14 @@ export function createKanbanViewModel(): KanbanViewModel {
         !areStringArraysEqual(currentSelectedProperties, selectedProperties)
       ) {
         selectedPropertiesStore.set(selectedProperties);
+      }
+
+      if (get(cardCoverEnabledStore) !== cardCoverEnabled) {
+        cardCoverEnabledStore.set(cardCoverEnabled);
+      }
+
+      if (get(cardCoverSourceStore) !== cardCoverSource) {
+        cardCoverSourceStore.set(cardCoverSource);
       }
     },
 

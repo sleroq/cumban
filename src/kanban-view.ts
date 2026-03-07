@@ -26,6 +26,9 @@ import {
   BACKGROUND_BLUR_OPTION_KEY,
   BACKGROUND_BRIGHTNESS_OPTION_KEY,
   BACKGROUND_IMAGE_OPTION_KEY,
+  CARD_COVER_ENABLED_OPTION_KEY,
+  CARD_COVER_HEIGHT_OPTION_KEY,
+  CARD_COVER_SOURCE_OPTION_KEY,
   BOARD_SCROLL_POSITION_KEY,
   BOARD_SCROLL_STATE_KEY,
   BOARD_SCROLL_TOP_POSITION_KEY,
@@ -612,6 +615,8 @@ export class KanbanView extends BasesView {
       groups: renderedGroups,
       groupByProperty,
       selectedProperties,
+      cardCoverEnabled: this.getCardCoverEnabledFromConfig(),
+      cardCoverSource: this.getCardCoverSourceFromConfig(),
     });
     this.viewModel.setActiveTagFilters(this.activeTagFilters);
     this.viewModel.setColumnScrollByKey(columnScrollByKey);
@@ -716,6 +721,8 @@ export class KanbanView extends BasesView {
         activeTagFiltersStore: this.viewModel.activeTagFiltersStore,
         groupByPropertyStore: this.viewModel.groupByPropertyStore,
         selectedPropertiesStore: this.viewModel.selectedPropertiesStore,
+        cardCoverEnabledStore: this.viewModel.cardCoverEnabledStore,
+        cardCoverSourceStore: this.viewModel.cardCoverSourceStore,
         columnScrollByKeyStore: this.viewModel.columnScrollByKeyStore,
         pinnedColumnsStore: this.viewModel.pinnedColumnsStore,
         animationsReadyStore: this.viewModel.animationsReadyStore,
@@ -749,9 +756,13 @@ export class KanbanView extends BasesView {
       }
     }
 
-    this.viewModel.groupsStore.set(renderedGroups);
-    this.viewModel.groupByPropertyStore.set(groupByProperty);
-    this.viewModel.selectedPropertiesStore.set(selectedProperties);
+    this.viewModel.setBoardData({
+      groups: renderedGroups,
+      groupByProperty,
+      selectedProperties,
+      cardCoverEnabled: this.getCardCoverEnabledFromConfig(),
+      cardCoverSource: this.getCardCoverSourceFromConfig(),
+    });
 
     if (hasNewColumns) {
       this.viewModel.setColumnScrollByKey(columnScrollByKey);
@@ -937,6 +948,10 @@ export class KanbanView extends BasesView {
     this.rootEl.style.setProperty(
       "--bases-kanban-column-blur",
       `${styles.columnBlurValue}px`,
+    );
+    this.rootEl.style.setProperty(
+      "--bases-kanban-card-cover-height",
+      `${this.getCardCoverHeightFromConfig()}px`,
     );
 
     const backgroundEl = this.rootEl.querySelector<HTMLDivElement>(
@@ -1806,6 +1821,28 @@ export class KanbanView extends BasesView {
     return this.config?.get(COLUMNS_RIGHT_TO_LEFT_OPTION_KEY) === true;
   }
 
+  private getCardCoverEnabledFromConfig(): boolean {
+    const configValue = this.config?.get(CARD_COVER_ENABLED_OPTION_KEY);
+    return configValue === undefined ? true : configValue === true;
+  }
+
+  private getCardCoverSourceFromConfig(): string {
+    const configValue = this.config?.get(CARD_COVER_SOURCE_OPTION_KEY);
+    if (typeof configValue !== "string") {
+      return "cover";
+    }
+    const trimmed = configValue.trim();
+    return trimmed.length > 0 ? trimmed : "cover";
+  }
+
+  private getCardCoverHeightFromConfig(): number {
+    const configValue = this.config?.get(CARD_COVER_HEIGHT_OPTION_KEY);
+    if (typeof configValue !== "number" || Number.isNaN(configValue)) {
+      return 140;
+    }
+    return Math.max(60, Math.min(200, configValue));
+  }
+
   private updatePinnedColumns(pinnedColumns: string[]): void {
     this.pinnedColumnsCache = { columns: null, raw: "" };
     this.config?.set(
@@ -2338,6 +2375,8 @@ export class KanbanView extends BasesView {
         groups: partialGroups,
         groupByProperty,
         selectedProperties,
+        cardCoverEnabled: this.getCardCoverEnabledFromConfig(),
+        cardCoverSource: this.getCardCoverSourceFromConfig(),
       });
 
       const allDone = revealed.every((r, i) => r >= totals[i]);

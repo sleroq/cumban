@@ -1,10 +1,16 @@
 <script lang="ts">
     import { getContext, onDestroy } from "svelte";
-    import { type BasesEntry, type BasesPropertyId } from "obsidian";
+    import {
+        normalizePath,
+        TFile,
+        type BasesEntry,
+        type BasesPropertyId,
+    } from "obsidian";
     import type { PropertyEditorMode } from "../kanban-view/actions";
     import type { PropertyType } from "../kanban-view/actions";
     import { PropertyValueEditorSuggest } from "../kanban-view/property-value-suggest-popover";
     import {
+        getPropertyScalarValue,
         getPropertyValues,
         normalizeTagDisplayValue,
         parseWikiLinks,
@@ -58,6 +64,8 @@
     const settings = $derived($settingsStore);
     const groupByProperty = $derived(boardContext.groupByProperty);
     const selectedProperties = $derived(boardContext.selectedProperties);
+    const cardCoverEnabled = $derived(boardContext.cardCoverEnabled);
+    const cardCoverSource = $derived(boardContext.cardCoverSource);
     const callbacks = $derived(boardContext.callbacks);
     const dragState = boardContext.dragState;
 
@@ -112,6 +120,9 @@
     const fullTitle = $derived(getCardTitle(entry, settings.cardTitleSource));
     const title = $derived(
         truncateTitle(fullTitle, settings.cardTitleMaxLength),
+    );
+    const coverImageUrl = $derived(
+        resolveCardCoverUrl(entry, cardCoverSource, cardCoverEnabled),
     );
 
     const propertiesToDisplay = $derived(
@@ -172,6 +183,107 @@
             return ".".repeat(maxLength);
         }
         return text.slice(0, maxLength - 3) + "...";
+    }
+
+    function getCoverSourceCandidates(source: string): string[] {
+        const trimmedSource = source.trim();
+        if (trimmedSource.length === 0) {
+            return ["note.cover", "cover"];
+        }
+
+        if (trimmedSource.startsWith("note.")) {
+            const withoutPrefix = trimmedSource.slice("note.".length);
+            return withoutPrefix.length > 0
+                ? [trimmedSource, withoutPrefix]
+                : [trimmedSource];
+        }
+
+        return [`note.${trimmedSource}`, trimmedSource];
+    }
+
+    function getCardCoverRawValue(entry: BasesEntry, source: string): string | null {
+        for (const candidate of getCoverSourceCandidates(source)) {
+            const rawValue = entry.getValue(candidate as BasesPropertyId);
+            const firstValue = Array.isArray(rawValue)
+                ? getPropertyValues(rawValue)?.[0]?.trim()
+                : getPropertyScalarValue(rawValue)?.trim();
+            if (firstValue !== undefined && firstValue.length > 0) {
+                return firstValue;
+            }
+        }
+        return null;
+    }
+
+    function extractWikiLinkTarget(value: string): string | null {
+        const match = value.match(
+            /^!?\[\[([^\]|#]+(?:#[^\]|]+)?)(?:\|[^\]]+)?\]\]$/,
+        );
+        if (match === null) {
+            return null;
+        }
+        return match[1]?.trim() ?? null;
+    }
+
+    function resolveVaultResourcePath(
+        candidate: string,
+        sourcePath: string,
+    ): string | null {
+        const withoutSubpath = candidate.split("#")[0]?.trim() ?? "";
+        if (withoutSubpath.length === 0) {
+            return null;
+        }
+
+        const linkedFile = app.metadataCache.getFirstLinkpathDest(
+            withoutSubpath,
+            sourcePath,
+        );
+        if (linkedFile instanceof TFile) {
+            return app.vault.getResourcePath(linkedFile);
+        }
+
+        const normalized = normalizePath(withoutSubpath);
+        const file = app.vault.getAbstractFileByPath(normalized);
+        if (file instanceof TFile) {
+            return app.vault.getResourcePath(file);
+        }
+
+        return null;
+    }
+
+    function resolveCoverValueToImageUrl(
+        value: string,
+        sourcePath: string,
+    ): string | null {
+        const trimmed = value.trim();
+        if (trimmed.length === 0) {
+            return null;
+        }
+
+        const wikiTarget = extractWikiLinkTarget(trimmed);
+        if (wikiTarget !== null) {
+            return resolveVaultResourcePath(wikiTarget, sourcePath);
+        }
+
+        if (/^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed)) {
+            return trimmed;
+        }
+
+        return resolveVaultResourcePath(trimmed, sourcePath);
+    }
+
+    function resolveCardCoverUrl(
+        entry: BasesEntry,
+        source: string,
+        enabled: boolean,
+    ): string | null {
+        if (!enabled) {
+            return null;
+        }
+        const rawCoverValue = getCardCoverRawValue(entry, source);
+        if (rawCoverValue === null) {
+            return null;
+        }
+        return resolveCoverValueToImageUrl(rawCoverValue, entry.file.path);
     }
 
     function getTagDisplayValue(value: string, isTagProperty: boolean): string {
@@ -1043,6 +1155,18 @@
     role="button"
     tabindex="0"
 >
+    {#if coverImageUrl !== null}
+        <div class="bases-kanban-card-cover">
+            <img
+                src={coverImageUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable="false"
+            />
+        </div>
+    {/if}
+
     <div class="bases-kanban-card-title">
         {#if isEditingTitle}
             <input

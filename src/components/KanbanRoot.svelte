@@ -33,6 +33,8 @@
         activeTagFiltersStore: Readable<string[]>;
         groupByPropertyStore: Readable<BasesPropertyId | null>;
         selectedPropertiesStore: Readable<BasesPropertyId[]>;
+        cardCoverEnabledStore: Readable<boolean>;
+        cardCoverSourceStore: Readable<string>;
         columnScrollByKeyStore: Readable<Record<string, number>>;
         pinnedColumnsStore: Readable<Set<string>>;
         animationsReadyStore: Readable<boolean>;
@@ -55,6 +57,8 @@
         activeTagFiltersStore,
         groupByPropertyStore,
         selectedPropertiesStore,
+        cardCoverEnabledStore,
+        cardCoverSourceStore,
         columnScrollByKeyStore,
         pinnedColumnsStore,
         animationsReadyStore,
@@ -97,6 +101,8 @@
     const activeTagFilters = $derived($activeTagFiltersStore);
     const groupByProperty = $derived($groupByPropertyStore);
     const selectedProperties = $derived($selectedPropertiesStore);
+    const cardCoverEnabled = $derived($cardCoverEnabledStore);
+    const cardCoverSource = $derived($cardCoverSourceStore);
     const columnScrollByKey = $derived($columnScrollByKeyStore);
     const pinnedColumns = $derived($pinnedColumnsStore);
 </script>
@@ -108,6 +114,8 @@
     {activeTagFilters}
     {groupByProperty}
     {selectedProperties}
+    {cardCoverEnabled}
+    {cardCoverSource}
     {initialBoardScrollLeft}
     {initialBoardScrollTop}
     {columnScrollByKey}

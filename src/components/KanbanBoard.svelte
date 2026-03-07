@@ -24,6 +24,8 @@
         activeTagFilters: string[];
         groupByProperty: BasesPropertyId | null;
         selectedProperties: BasesPropertyId[];
+        cardCoverEnabled: boolean;
+        cardCoverSource: string;
         initialBoardScrollLeft: number;
         initialBoardScrollTop: number;
         columnScrollByKey: Record<string, number>;
@@ -37,6 +39,8 @@
         activeTagFilters,
         groupByProperty,
         selectedProperties,
+        cardCoverEnabled,
+        cardCoverSource,
         initialBoardScrollLeft,
         initialBoardScrollTop,
         columnScrollByKey,
@@ -137,6 +141,12 @@
         },
         get selectedProperties() {
             return selectedProperties;
+        },
+        get cardCoverEnabled() {
+            return cardCoverEnabled;
+        },
+        get cardCoverSource() {
+            return cardCoverSource;
         },
         get dragState() {
             return dragState;
