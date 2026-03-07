@@ -206,6 +206,14 @@
 	cursor: text;
 }
 
+.bases-kanban-column-header h3 a {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-decoration: none;
+}
+
 .bases-kanban-column-name-display {
 	width: var(--bases-kanban-column-header-width, 150px);
 	max-width: var(--bases-kanban-column-header-width, 150px);

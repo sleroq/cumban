@@ -3,7 +3,7 @@
     import { setIcon, type BasesEntry } from "obsidian";
     import { onDestroy, onMount } from "svelte";
     import KanbanCard from "./KanbanCard.svelte";
-    import { getColumnName } from "../kanban-view/utils";
+    import { getColumnName, parseWikiLinks } from "../kanban-view/utils";
     import {
         KANBAN_BOARD_CONTEXT_KEY,
         type KanbanBoardContext,
@@ -94,6 +94,17 @@
     const columnName = $derived(
         getColumnName(groupKey, settings.emptyColumnLabel),
     );
+    const columnNameLink = $derived.by(() => {
+        const links = parseWikiLinks(columnName);
+        if (
+            links.length === 1 &&
+            columnName.startsWith("[[") &&
+            columnName.endsWith("]]")
+        ) {
+            return links[0];
+        }
+        return null;
+    });
     let isEditingColumnName = $state(false);
     let editingColumnName = $state("");
     let columnNameInputEl: HTMLInputElement | null = $state(null);
@@ -253,6 +264,16 @@
             isSubmittingColumnRename = false;
         }
     }
+
+    function handleColumnNameLinkClick(evt: MouseEvent, target: string): void {
+        evt.preventDefault();
+        evt.stopPropagation();
+        callbacks.card.linkClick(evt, target);
+    }
+
+    function handleColumnNameLinkHover(evt: MouseEvent, target: string): void {
+        callbacks.card.linkHover(evt, target);
+    }
 </script>
 
 <div
@@ -399,7 +420,31 @@
                     class="bases-kanban-column-name-display"
                     style:width="{settings.columnHeaderWidth}px"
                 >
-                    <h3>{columnName}</h3>
+                    <h3>
+                        {#if columnNameLink !== null}
+                            <!-- svelte-ignore a11y_invalid_attribute -->
+                            <a
+                                href="#"
+                                class="internal-link"
+                                draggable="false"
+                                onmousedown={(evt) => evt.stopPropagation()}
+                                onclick={(evt) =>
+                                    handleColumnNameLinkClick(
+                                        evt,
+                                        columnNameLink.target,
+                                    )}
+                                onmouseenter={(evt) =>
+                                    handleColumnNameLinkHover(
+                                        evt,
+                                        columnNameLink.target,
+                                    )}
+                            >
+                                {columnNameLink.display}
+                            </a>
+                        {:else}
+                            {columnName}
+                        {/if}
+                    </h3>
                     <span
                         class="bases-kanban-column-edit-indicator"
                         aria-hidden="true"
