@@ -4,6 +4,7 @@
 
 ## Features
 
+- Card covers
 - Inline editing of properties on the cards with suggestions
 - Automatically migrate old Kanban boards to Bases with the command
 - Custom backgrounds with brightness/blur controls
@@ -20,7 +21,6 @@
 
 ## Planned Features
 
-- Card covers
 - Card blockers
 - Navigation between cards with HJKL
 - Commands for moving the cards around
