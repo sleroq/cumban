@@ -141,6 +141,17 @@
                 propertyId !== "file.name" && propertyId !== groupByProperty,
         ),
     );
+    const showTitle = $derived(selectedProperties.includes("file.name"));
+
+    $effect((): void => {
+        if (showTitle) {
+            return;
+        }
+
+        if (isEditingTitle || isRenamingTitle) {
+            cancelTitleEditing();
+        }
+    });
 
     const selected = $derived($selectedPathsStore.has(filePath));
 
@@ -1182,7 +1193,8 @@
         </div>
     {/if}
 
-    <div class="bases-kanban-card-title">
+    {#if showTitle}
+        <div class="bases-kanban-card-title">
         {#if isEditingTitle}
             <input
                 bind:this={titleInputEl}
@@ -1231,7 +1243,8 @@
                 >
             </button>
         {/if}
-    </div>
+        </div>
+    {/if}
 
     {#if propertiesToDisplay.length > 0}
         <div class="bases-kanban-card-properties">
