@@ -141,6 +141,14 @@
                 propertyId !== "file.name" && propertyId !== groupByProperty,
         ),
     );
+    const visiblePropertiesToDisplay = $derived(
+        propertiesToDisplay.filter((propertyId) => {
+            const rawValue = getDisplayPropertyRawValue(propertyId);
+            const values = getPropertyValues(rawValue);
+            const propertyType = callbacks.card.getPropertyType(propertyId);
+            return values !== null || propertyType === "checkbox";
+        }),
+    );
     const showTitle = $derived(selectedProperties.includes("file.name"));
 
     $effect((): void => {
@@ -1246,15 +1254,17 @@
         </div>
     {/if}
 
-    {#if propertiesToDisplay.length > 0}
-        <div class="bases-kanban-card-properties">
-            {#each propertiesToDisplay as propertyId (propertyId)}
+    {#if visiblePropertiesToDisplay.length > 0}
+        <div
+            class="bases-kanban-card-properties"
+            class:bases-kanban-card-properties-with-title={showTitle}
+        >
+            {#each visiblePropertiesToDisplay as propertyId (propertyId)}
                 {@const rawValue = getDisplayPropertyRawValue(propertyId)}
                 {@const values = getPropertyValues(rawValue)}
                 {@const mode = callbacks.card.getPropertyEditorMode(propertyId)}
                 {@const propertyType =
                     callbacks.card.getPropertyType(propertyId)}
-                {#if values !== null || propertyType === "checkbox"}
                     {@const isTagProperty = propertyId.endsWith(
                         settings.tagPropertySuffix,
                     )}
@@ -1649,7 +1659,6 @@
                             </span>
                         {/if}
                     </div>
-                {/if}
             {/each}
         </div>
     {/if}
