@@ -556,6 +556,10 @@
 	word-break: break-word;
 }
 
+.bases-kanban-metadata-link {
+	padding: 0;
+}
+
 .bases-kanban-checkbox-row {
 	display: flex;
 	align-items: center;

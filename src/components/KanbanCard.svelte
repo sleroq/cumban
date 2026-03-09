@@ -1524,7 +1524,9 @@
                                             class="bases-kanban-property-value metadata-property-value"
                                             data-property-type="text"
                                         >
-                                            <div class="metadata-link">
+                                            <div
+                                                class="metadata-link bases-kanban-metadata-link"
+                                            >
                                                 <div
                                                     class="metadata-link-inner external-link"
                                                     data-href={externalLinkHref}
