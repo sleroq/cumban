@@ -560,6 +560,33 @@
 	padding: 0;
 }
 
+.bases-kanban-card .metadata-property-value {
+	min-height: 0;
+	padding: 0;
+	line-height: inherit;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.bases-kanban-card .metadata-link {
+	min-height: 0;
+	padding: 0;
+	line-height: inherit;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.bases-kanban-card .metadata-link-flair {
+	display: inline-flex;
+	align-items: center;
+}
+
+.bases-kanban-card .metadata-input-checkbox {
+	margin: 0;
+}
+
 .bases-kanban-checkbox-row {
 	display: flex;
 	align-items: center;
