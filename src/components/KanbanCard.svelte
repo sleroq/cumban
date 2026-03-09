@@ -1268,6 +1268,8 @@
                         class:bases-kanban-property-row-editable={mode !==
                             null && !isCheckboxProperty}
                         class:bases-kanban-property-row-editing={isEditingProperty}
+                        class:bases-kanban-property-row-tags={isTagProperty &&
+                            !isEditingProperty}
                         onclick={(evt: MouseEvent) =>
                             handlePropertyRowClick(
                                 evt,

@@ -476,6 +476,18 @@
 	position: relative;
 }
 
+.bases-kanban-property-row.bases-kanban-property-row-tags {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	column-gap: 3px;
+	row-gap: 4px;
+}
+
+.bases-kanban-property-row.bases-kanban-property-row-tags .bases-kanban-property-tag {
+	margin-right: 0;
+}
+
 .bases-kanban-property-row:hover {
 	border-radius: var(--metadata-property-radius-hover, var(--metadata-property-radius, 0));
 	background: var(--metadata-property-background-hover, var(--metadata-property-background, transparent));
