@@ -342,8 +342,17 @@
 	display: block;
 	width: 100%;
 	height: 100%;
-	object-fit: cover;
+	object-fit: var(--bases-kanban-card-cover-fit, cover);
 	transition: transform 220ms ease;
+}
+
+.bases-kanban-card-cover-fit-contain .bases-kanban-card-cover {
+	height: auto;
+}
+
+.bases-kanban-card-cover-fit-contain .bases-kanban-card-cover img {
+	height: auto;
+	max-height: none;
 }
 
 .bases-kanban-card-cover::after {

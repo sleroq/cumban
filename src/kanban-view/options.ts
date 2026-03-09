@@ -3,6 +3,7 @@ import {
   BACKGROUND_BRIGHTNESS_OPTION_KEY,
   BACKGROUND_IMAGE_OPTION_KEY,
   CARD_COVER_ENABLED_OPTION_KEY,
+  CARD_COVER_CONTAIN_OPTION_KEY,
   CARD_COVER_HEIGHT_OPTION_KEY,
   CARD_COVER_SOURCE_OPTION_KEY,
   COLUMN_BLUR_OPTION_KEY,
@@ -112,6 +113,12 @@ export function getKanbanViewOptions() {
       min: 60,
       max: 200,
       step: 10,
+    },
+    {
+      key: CARD_COVER_CONTAIN_OPTION_KEY,
+      displayName: "Image fit: Contain (height ignored)",
+      type: "toggle" as const,
+      default: false,
     },
     {
       key: COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,

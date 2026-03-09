@@ -27,6 +27,7 @@ import {
   BACKGROUND_BRIGHTNESS_OPTION_KEY,
   BACKGROUND_IMAGE_OPTION_KEY,
   CARD_COVER_ENABLED_OPTION_KEY,
+  CARD_COVER_CONTAIN_OPTION_KEY,
   CARD_COVER_HEIGHT_OPTION_KEY,
   CARD_COVER_SOURCE_OPTION_KEY,
   BOARD_SCROLL_POSITION_KEY,
@@ -953,6 +954,12 @@ export class KanbanView extends BasesView {
       "--bases-kanban-card-cover-height",
       `${this.getCardCoverHeightFromConfig()}px`,
     );
+    const cardCoverFit = this.getCardCoverFitFromConfig();
+    this.rootEl.style.setProperty("--bases-kanban-card-cover-fit", cardCoverFit);
+    this.rootEl.classList.toggle(
+      "bases-kanban-card-cover-fit-contain",
+      cardCoverFit === "contain",
+    );
 
     const backgroundEl = this.rootEl.querySelector<HTMLDivElement>(
       ".bases-kanban-background",
@@ -1841,6 +1848,12 @@ export class KanbanView extends BasesView {
       return 140;
     }
     return Math.max(60, Math.min(200, configValue));
+  }
+
+  private getCardCoverFitFromConfig(): "cover" | "contain" {
+    return this.config?.get(CARD_COVER_CONTAIN_OPTION_KEY) === true
+      ? "contain"
+      : "cover";
   }
 
   private updatePinnedColumns(pinnedColumns: string[]): void {

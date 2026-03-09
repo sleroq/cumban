@@ -14,5 +14,6 @@ export const PINNED_COLUMNS_OPTION_KEY = "pinnedColumns";
 export const CARD_COVER_ENABLED_OPTION_KEY = "cardCoverEnabled";
 export const CARD_COVER_SOURCE_OPTION_KEY = "cardCoverSource";
 export const CARD_COVER_HEIGHT_OPTION_KEY = "cardCoverHeight";
+export const CARD_COVER_CONTAIN_OPTION_KEY = "cardCoverContain";
 export const COLUMNS_RIGHT_TO_LEFT_OPTION_KEY = "columnsRightToLeft";
 export const KANBAN_VIEW_ID_OPTION_KEY = "kanbanViewId";
