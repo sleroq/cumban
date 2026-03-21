@@ -25,6 +25,7 @@ import {
   BOARD_SCROLL_STATE_KEY,
   BOARD_SCROLL_TOP_POSITION_KEY,
   CARD_COVER_ENABLED_OPTION_KEY,
+  CARD_COVER_FIT_OPTION_KEY,
   CARD_COVER_HEIGHT_OPTION_KEY,
   CARD_COVER_SOURCE_OPTION_KEY,
   COLUMN_BLUR_OPTION_KEY,
@@ -1862,8 +1863,9 @@ export class KanbanView extends BasesView {
 
   private getCardCoverFitFromConfig(): "cover" | "contain" | "contain-fixed" {
     const fit = this.config?.get(CARD_COVER_FIT_OPTION_KEY);
-    if (fit === "contain") return "contain";
-    if (fit === "contain-fixed") return "contain-fixed";
+    const fitNum = Number(fit);
+    if (fitNum === 1) return "contain";
+    if (fitNum === 2) return "contain-fixed";
     return "cover";
   }
 
