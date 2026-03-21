@@ -6,8 +6,8 @@ import {
   BasesView,
   Menu,
   Modal,
-  Notice,
   normalizePath,
+  Notice,
   QueryController,
   setIcon,
   SuggestModal,
@@ -15,93 +15,92 @@ import {
 } from "obsidian";
 import { mount, unmount } from "svelte";
 
-import type BasesKanbanPlugin from "./main";
+import { resolveBackgroundStyles } from "./kanban-view/background-manager";
+import { persistCurrentBaseViewAsDefault } from "./kanban-view/base-view-order";
+import {
+  BACKGROUND_BLUR_OPTION_KEY,
+  BACKGROUND_BRIGHTNESS_OPTION_KEY,
+  BACKGROUND_IMAGE_OPTION_KEY,
+  BOARD_SCROLL_POSITION_KEY,
+  BOARD_SCROLL_STATE_KEY,
+  BOARD_SCROLL_TOP_POSITION_KEY,
+  CARD_COVER_ENABLED_OPTION_KEY,
+  CARD_COVER_HEIGHT_OPTION_KEY,
+  CARD_COVER_SOURCE_OPTION_KEY,
+  COLUMN_BLUR_OPTION_KEY,
+  COLUMN_ORDER_OPTION_KEY,
+  COLUMN_TRANSPARENCY_OPTION_KEY,
+  COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
+  KANBAN_VIEW_ID_OPTION_KEY,
+  LOCAL_CARD_ORDER_OPTION_KEY,
+  NO_VALUE_COLUMN_KEY,
+  PINNED_COLUMNS_OPTION_KEY,
+} from "./kanban-view/constants";
 import {
   logDebug,
   logDragEvent,
   logRenderEvent,
   logScrollEvent,
 } from "./kanban-view/debug";
-import {
-  BACKGROUND_BLUR_OPTION_KEY,
-  BACKGROUND_BRIGHTNESS_OPTION_KEY,
-  BACKGROUND_IMAGE_OPTION_KEY,
-  CARD_COVER_ENABLED_OPTION_KEY,
-  CARD_COVER_CONTAIN_OPTION_KEY,
-  CARD_COVER_HEIGHT_OPTION_KEY,
-  CARD_COVER_SOURCE_OPTION_KEY,
-  BOARD_SCROLL_POSITION_KEY,
-  BOARD_SCROLL_STATE_KEY,
-  BOARD_SCROLL_TOP_POSITION_KEY,
-  COLUMN_BLUR_OPTION_KEY,
-  COLUMN_ORDER_OPTION_KEY,
-  COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,
-  KANBAN_VIEW_ID_OPTION_KEY,
-  COLUMN_TRANSPARENCY_OPTION_KEY,
-  LOCAL_CARD_ORDER_OPTION_KEY,
-  NO_VALUE_COLUMN_KEY,
-  PINNED_COLUMNS_OPTION_KEY,
-} from "./kanban-view/constants";
+import { buildEntryIndexes, type EntryGroupLike } from "./kanban-view/indexing";
+import { KanbanMutationService } from "./kanban-view/mutations";
 import { getKanbanViewOptions } from "./kanban-view/options";
+import {
+  type CardOrderCache,
+  type ColumnOrderCache,
+  loadColumnScrollPosition,
+  loadLegacyScrollPosition,
+  loadScrollState,
+  parseColumnOrder,
+  parseLocalCardOrder,
+  parsePinnedColumns,
+  type PinnedColumnsCache,
+  saveBoardScrollState,
+  saveColumnScrollPosition,
+  serializeColumnOrder,
+  serializeLocalCardOrder,
+  serializePinnedColumns,
+} from "./kanban-view/state-persistence";
 import {
   detectGroupByProperty,
   getColumnKey,
-  normalizeTagFilterValue,
-  getTargetGroupValue,
-  getPropertyValues,
   getPropertyCandidates,
+  getPropertyValues,
   getSelectedProperties,
+  getTargetGroupValue,
   getWritablePropertyKey,
   hasConfiguredGroupBy,
+  normalizeTagFilterValue,
 } from "./kanban-view/utils";
-import { buildEntryIndexes, type EntryGroupLike } from "./kanban-view/indexing";
-import { KanbanMutationService } from "./kanban-view/mutations";
-import {
-  type ColumnOrderCache,
-  type CardOrderCache,
-  type PinnedColumnsCache,
-  saveBoardScrollState,
-  loadScrollState,
-  loadLegacyScrollPosition,
-  parseColumnOrder,
-  serializeColumnOrder,
-  parseLocalCardOrder,
-  serializeLocalCardOrder,
-  saveColumnScrollPosition,
-  loadColumnScrollPosition,
-  parsePinnedColumns,
-  serializePinnedColumns,
-} from "./kanban-view/state-persistence";
-import { resolveBackgroundStyles } from "./kanban-view/background-manager";
-import { persistCurrentBaseViewAsDefault } from "./kanban-view/base-view-order";
+import type BasesKanbanPlugin from "./main";
 
-import {
-  type RenderedGroup,
-  filterRenderedGroupsByTag,
-  mergeGroupsByColumnKey,
-  sortGroupsByColumnOrder,
-  buildRenderedGroups,
-} from "./kanban-view/render-pipeline";
-import {
-  type SelectionState,
-  createSelectionState,
-  selectCard as selectCardState,
-  clearSelection as clearSelectionState,
-  getDraggedPaths as getDraggedPathsState,
-  syncSelectionWithEntries,
-  isPathSelected,
-  hasSelection,
-} from "./kanban-view/selection-state";
 import KanbanRoot from "./components/KanbanRoot.svelte";
-import {
-  createKanbanViewModel,
-  type KanbanViewModel,
-} from "./kanban-view/view-model";
 import type {
   KanbanCallbacks,
   PropertyEditorMode,
   PropertyType,
 } from "./kanban-view/actions";
+import {
+  buildRenderedGroups,
+  filterRenderedGroupsByTag,
+  mergeGroupsByColumnKey,
+  type RenderedGroup,
+  sortGroupsByColumnOrder,
+} from "./kanban-view/render-pipeline";
+import {
+  clearSelection as clearSelectionState,
+  createSelectionState,
+  getDraggedPaths as getDraggedPathsState,
+  hasSelection,
+  isPathSelected,
+  selectCard as selectCardState,
+  type SelectionState,
+  syncSelectionWithEntries,
+} from "./kanban-view/selection-state";
+import {
+  createKanbanViewModel,
+  type KanbanViewModel,
+} from "./kanban-view/view-model";
 
 type MetadataPropertyInfo = {
   options?: Record<string, string> | string[];
@@ -448,7 +447,8 @@ export class KanbanView extends BasesView {
         return;
       }
 
-      const leafContainer = (leaf.view as { containerEl?: unknown }).containerEl;
+      const leafContainer = (leaf.view as { containerEl?: unknown })
+        .containerEl;
       if (!(leafContainer instanceof HTMLElement)) {
         return;
       }
@@ -954,11 +954,19 @@ export class KanbanView extends BasesView {
       "--bases-kanban-card-cover-height",
       `${this.getCardCoverHeightFromConfig()}px`,
     );
+
     const cardCoverFit = this.getCardCoverFitFromConfig();
-    this.rootEl.style.setProperty("--bases-kanban-card-cover-fit", cardCoverFit);
+    this.rootEl.style.setProperty(
+      "--bases-kanban-card-cover-fit",
+      cardCoverFit === "contain-fixed" ? "contain" : cardCoverFit,
+    );
     this.rootEl.classList.toggle(
       "bases-kanban-card-cover-fit-contain",
       cardCoverFit === "contain",
+    );
+    this.rootEl.classList.toggle(
+      "bases-kanban-card-cover-fit-contain-fixed",
+      cardCoverFit === "contain-fixed",
     );
 
     const backgroundEl = this.rootEl.querySelector<HTMLDivElement>(
@@ -1663,7 +1671,9 @@ export class KanbanView extends BasesView {
     const nextFilters = [...new Set(activeTagFilters)];
     if (
       this.activeTagFilters.length === nextFilters.length &&
-      this.activeTagFilters.every((filter, index) => filter === nextFilters[index])
+      this.activeTagFilters.every(
+        (filter, index) => filter === nextFilters[index],
+      )
     ) {
       return;
     }
@@ -1850,10 +1860,11 @@ export class KanbanView extends BasesView {
     return Math.max(60, Math.min(200, configValue));
   }
 
-  private getCardCoverFitFromConfig(): "cover" | "contain" {
-    return this.config?.get(CARD_COVER_CONTAIN_OPTION_KEY) === true
-      ? "contain"
-      : "cover";
+  private getCardCoverFitFromConfig(): "cover" | "contain" | "contain-fixed" {
+    const fit = this.config?.get(CARD_COVER_FIT_OPTION_KEY);
+    if (fit === "contain") return "contain";
+    if (fit === "contain-fixed") return "contain-fixed";
+    return "cover";
   }
 
   private updatePinnedColumns(pinnedColumns: string[]): void {
@@ -2357,10 +2368,7 @@ export class KanbanView extends BasesView {
       return;
     }
 
-    const perColumnBatch = Math.max(
-      1,
-      Math.ceil(CARDS_PER_BATCH / numColumns),
-    );
+    const perColumnBatch = Math.max(1, Math.ceil(CARDS_PER_BATCH / numColumns));
     const revealed = new Array<number>(numColumns).fill(0);
     const totals = renderedGroups.map((g) => g.entries.length);
 
