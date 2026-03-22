@@ -117,9 +117,13 @@ export function getKanbanViewOptions() {
     {
       key: CARD_COVER_FIT_OPTION_KEY,
       displayName: "Image fit",
-      type: "dropdown",
+      type: "dropdown" as const,
       default: "cover",
-      options: ["cover", "contain", "contain-fixed"],
+      options: {
+        cover: "Cover",
+        contain: "Contain (auto height)",
+        "contain-fixed": "Contain (fixed height)",
+      },
     },
     {
       key: COLUMNS_RIGHT_TO_LEFT_OPTION_KEY,

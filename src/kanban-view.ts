@@ -1863,9 +1863,8 @@ export class KanbanView extends BasesView {
 
   private getCardCoverFitFromConfig(): "cover" | "contain" | "contain-fixed" {
     const fit = this.config?.get(CARD_COVER_FIT_OPTION_KEY);
-    const fitNum = Number(fit);
-    if (fitNum === 1) return "contain";
-    if (fitNum === 2) return "contain-fixed";
+    if (fit === "contain") return "contain";
+    if (fit === "contain-fixed") return "contain-fixed";
     return "cover";
   }
 
