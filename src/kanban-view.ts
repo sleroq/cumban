@@ -1863,8 +1863,13 @@ export class KanbanView extends BasesView {
 
   private getCardCoverFitFromConfig(): "cover" | "contain" | "contain-fixed" {
     const fit = this.config?.get(CARD_COVER_FIT_OPTION_KEY);
-    if (fit === "contain") return "contain";
-    if (fit === "contain-fixed") return "contain-fixed";
+    if (fit === "cover" || fit === "contain" || fit === "contain-fixed") {
+      return fit;
+    }
+    // Backward compatibility for removed option
+    if (this.config?.get("cardCoverContain") === true) {
+      return "contain";
+    }
     return "cover";
   }
 
