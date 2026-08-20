@@ -636,12 +636,12 @@
 }
 
 /* Property editor input styles - ensure empty input is large enough to click into */
-.multi-select-container {
+.bases-kanban-card .multi-select-container {
 	width: 100%;
 	box-sizing: border-box;
 }
 
-.multi-select-input {
+.bases-kanban-card .multi-select-input {
 	display: block;
 	width: 100%;
 	max-width: 100%;
@@ -652,7 +652,7 @@
 	padding: 2px 4px;
 }
 
-.multi-select-input:empty::before {
+.bases-kanban-card .multi-select-input:empty::before {
 	content: attr(data-placeholder);
 	color: var(--text-muted);
 	pointer-events: none;
