@@ -104,7 +104,11 @@ export function createKanbanViewModel(): KanbanViewModel {
         if (
           currentEntry === undefined ||
           nextEntry === undefined ||
-          currentEntry.file.path !== nextEntry.file.path
+          currentEntry.file.path !== nextEntry.file.path ||
+          // Bases recreates entries whenever query data changes. A matching
+          // path only establishes card identity; the entry itself carries the
+          // current frontmatter, tags, formulas, and file metadata.
+          currentEntry !== nextEntry
         ) {
           return false;
         }
