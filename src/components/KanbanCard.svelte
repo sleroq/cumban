@@ -802,10 +802,16 @@
         if ((evt.target as HTMLElement).closest("a") !== null) {
             return;
         }
-        callbacks.card.select(filePath, evt.shiftKey || evt.metaKey);
+        callbacks.card.select(filePath, isSelectionExtension(evt));
     }
 
     function handleMouseDown(evt: MouseEvent): void {
+        if (isSelectionExtension(evt)) {
+            evt.preventDefault();
+            isDraggable = false;
+            return;
+        }
+
         if (groupByProperty === null) {
             return;
         }
@@ -898,6 +904,22 @@
         evt.stopPropagation();
         evt.stopImmediatePropagation();
         callbacks.card.contextMenu(evt, entry);
+    }
+
+    function isSelectionExtension(evt: MouseEvent | KeyboardEvent): boolean {
+        return evt.shiftKey;
+    }
+
+    function handleSelectionExtensionClick(evt: MouseEvent): void {
+        if (!isSelectionExtension(evt)) {
+            return;
+        }
+
+        // Intercept during capture so card controls and delegated link handlers
+        // cannot act before the card extends its selection.
+        evt.preventDefault();
+        evt.stopImmediatePropagation();
+        callbacks.card.select(filePath, true);
     }
 
     function handleLinkClick(evt: MouseEvent): void {
@@ -1160,7 +1182,7 @@
             return;
         }
         evt.preventDefault();
-        callbacks.card.select(filePath, evt.shiftKey || evt.metaKey);
+        callbacks.card.select(filePath, isSelectionExtension(evt));
     }
 </script>
 
@@ -1175,6 +1197,7 @@
         $dropPlacement === "after"}
     draggable={isDraggable}
     data-card-path={filePath}
+    onclickcapture={handleSelectionExtensionClick}
     onclick={handleClick}
     onmousedown={handleMouseDown}
     onmouseup={handleMouseUp}
