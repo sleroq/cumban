@@ -54,11 +54,7 @@ export function loadScrollState(
       return null;
     }
 
-    const state = parsed as {
-      left: unknown;
-      top: unknown;
-      sessionId: unknown;
-    };
+    const state = parsed;
 
     const left =
       typeof state.left === "number" && !Number.isNaN(state.left)
