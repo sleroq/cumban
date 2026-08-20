@@ -508,8 +508,11 @@ export class KanbanView extends BasesView {
       return;
     }
 
-    if (!hasConfiguredGroupBy(groups)) {
+    if (!hasConfiguredGroupBy(rawGroups)) {
       logRenderEvent("Rendering placeholder (no group by)");
+      if (pinnedColumns.length > 0) {
+        this.updatePinnedColumns([]);
+      }
       if (this.svelteApp !== null) {
         this.unmountSvelteApp();
       }
