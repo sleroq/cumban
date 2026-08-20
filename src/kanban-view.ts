@@ -2213,7 +2213,7 @@ export class KanbanView extends BasesView {
         const isNoValueColumn = columnKey === NO_VALUE_COLUMN_KEY;
         syntheticGroups.push({
           key: isNoValueColumn
-            ? (undefined as unknown as BasesEntryGroup["key"])
+            ? undefined
             : (columnKey as unknown as BasesEntryGroup["key"]),
           hasKey: (): boolean => !isNoValueColumn,
           entries: [],
