@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: "bun"
+    directories:
+      - "/"
+      - "/tools/obsidian-lint"
+    schedule:
+      interval: "weekly"
+    groups:
+      bun-dependencies:
+        patterns:
+          - "*"
